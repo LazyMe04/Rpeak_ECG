@@ -176,6 +176,21 @@ so `smoke:app` exercises every other path through
 `window.__TAURI_INTERNALS__.invoke("set_data_root", …)` and never the picker
 itself. The picker was checked by hand, once, on the built exe.
 
+The control, in the panel a reader opens to look for data:
+
+| Environment variable in force    | A folder chosen inside the app         | The variable overriding a remembered folder    |
+| -------------------------------- | -------------------------------------- | ---------------------------------------------- |
+| ![env](shots/g17-source-env.png) | ![chosen](shots/g17-source-chosen.png) | ![overridden](shots/g17-source-overridden.png) |
+
+And the screen the control exists for — no dataset found anywhere, so the error
+panel carries the way out:
+
+![no dataset](shots/g17-no-dataset.png)
+
+In the browser the same panel is read-only and says why:
+
+![browser](shots/g17-browser-readonly.png)
+
 The dataset is deliberately **not** bundled into the installer. 1.1 GB is not a
 reasonable download, and redistributing Icentia11k inside an installer is a
 licensing question this project should not answer by accident. The cost is that
