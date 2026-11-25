@@ -7,7 +7,7 @@ app/src-tauri/gen/
 # Generated in place, next to the source they are derived from, so they have to
 # be named explicitly. `tsc` wrote the build cache during an earlier incremental
 # config; `check_i18n.py --write` emits the two translator templates. None of
-# them is source, and all three were tracked by mistake in the initial commit.
+# them is source, and an early draft of the tree tracked all three by mistake.
 app/tsconfig.tsbuildinfo
 app/keys_template.json
 pipeline/keys_template.json
