@@ -1,0 +1,46 @@
+#!/bin/sh
+# The fast half of the gate, before a commit lands.
+#
+# A commit is the moment a mistake becomes history, and this project has no
+# CI: the only thing between an edit and a broken tree is whoever runs the
+# gate. So this runs what can finish in seconds -- the language audit, the
+# type check and the unit suites -- and leaves the browser smoke suites to
+# `npm run gate -- --browser`, because three headless browsers on every commit
+# would be a hook people disable.
+#
+# Install (once per clone):
+#   git config core.hooksPath .githooks
+#   # or: ln -s ../../.githooks/pre-commit .git/hooks/pre-commit
+#
+# Bypass, deliberately and visibly:
+#   git commit --no-verify
+set -e
+
+cd "$(dirname "$0")/../app"
+
+echo "pre-commit: i18n audit"
+python -I ../pipeline/check_i18n.py
+
+echo "pre-commit: format"
+npx prettier --check "src/**/*.{ts,tsx,css}" "scripts/**/*.ts" "*.{ts,js,json,html}" \
+  ../README.md "../docs/*.md"
+
+echo "pre-commit: lint"
+npx eslint src scripts
+
+echo "pre-commit: typecheck"
+npx tsc --noEmit
+
+echo "pre-commit: unit suites"
+for suite in test test:detect test:hrv test:delineate test:report test:cnn test:i18n; do
+  printf "  %-14s " "$suite"
+  if npm run --silent "$suite" >/tmp/rpeak-precommit.log 2>&1; then
+    echo "ok"
+  else
+    echo "FAILED"
+    tail -20 /tmp/rpeak-precommit.log
+    exit 1
+  fi
+done
+
+echo "pre-commit: ok (browser suites: npm run gate -- --browser)"

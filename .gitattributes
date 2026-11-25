@@ -1,0 +1,17 @@
+# One line ending in the repository, whatever the working tree was written with.
+#
+# The tree arrived with 16 files in CRLF and the rest in LF; without this, a
+# diff of a file that was only saved by a different editor shows every line as
+# changed. `text=auto` lets Git normalise to LF in the index and check out with
+# the platform's ending; `eol=lf` on the text types this project owns keeps even
+# that predictable, because the fonts, tests and Prettier config all assume LF.
+* text=auto eol=lf
+
+# Binary: never normalise, never try to diff.
+*.png binary
+*.ico binary
+*.icns binary
+*.f32 binary
+*.bin binary
+*.hea binary
+*.npy binary

@@ -1,0 +1,370 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Palette lifted from the reference app (upsidedownlabs/Rpeak, globals.css) so
+ * the dark dashboard is recognisably the same product. Everything that has to
+ * flip for the light theme is a variable here rather than a hard-coded
+ * `bg-black/60` in a component -- that is the one structural change the light
+ * theme requires, and the reason the reference's own light mode never worked.
+ */
+:root {
+  --primary: #ff3838;
+  --primary-dark: #e02c39;
+
+  --background: #020617;
+  --panel-bg: #1e293b;
+  --graph-bg: #0f172a;
+
+  --text: #f1f5f9;
+  --text-dim: #94a3b8;
+  --text-faint: #64748b;
+
+  /* Slightly more opaque than the reference's black/60: with a bright green
+     trace running underneath, 60% plus blur still leaves text hard to read. */
+  --panel-fill: rgba(2, 6, 23, 0.74);
+  --panel-border: rgba(255, 255, 255, 0.16);
+  --panel-hover: rgba(255, 255, 255, 0.07);
+  --panel-track: rgba(255, 255, 255, 0.12);
+
+  --rail-bg: #000000;
+  --rail-border: rgba(255, 255, 255, 0.1);
+
+  --page-gradient: linear-gradient(135deg, #0f172b 0%, #1d293d 50%, #0f172b 100%);
+  --grid-minor: rgba(148, 163, 184, 0.13);
+  --grid-major: rgba(148, 163, 184, 0.26);
+  --grid-axis: rgba(148, 163, 184, 0.38);
+
+  --wave: #00ff33;
+  --wave-soft: rgba(0, 255, 51, 0.22);
+
+  --accent: #54a2ff;
+  --accent-rgb: 84 162 255;
+  --success: #05df72;
+  --warn: #fac800;
+  --danger: #ff6568;
+  --orange: #ff8b1a;
+  --purple: #c07eff;
+  --cyan: #00d2ef;
+  --pink: #fb64b6;
+
+  --beat-N: #00ff33;
+  --beat-S: #fac800;
+  --beat-V: #ff6568;
+  --beat-Q: #c07eff;
+
+  /* Chart series, for the AI Model and Docs pages. These are not the UI tone
+     colours: they were validated as a categorical pair against this page's
+     dark surface (#0f172a) -- lightness band, chroma floor, CVD separation,
+     normal-vision separation and 3:1 contrast all pass. Changing them means
+     re-running the dataviz validator. Slot 1 doubles as the sequential hue for
+     the confusion matrix. */
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --chart-grid: rgba(148, 163, 184, 0.18);
+  --chart-axis: rgba(148, 163, 184, 0.65);
+
+  /* Detector output, deliberately not one of the annotation colours. */
+  --detect: #38bdf8;
+
+  /* PQRST delineation. Three hues that stay distinguishable from the trace,
+     the beat classes and the detector, in both themes. */
+  --delin-p: #f472b6;
+  --delin-qrs: #22d3ee;
+  --delin-t: #fbbf24;
+
+  --tone-blue: 84 162 255;
+  --tone-orange: 255 139 26;
+  --tone-cyan: 0 210 239;
+  --tone-purple: 192 126 255;
+  --tone-green: 5 223 114;
+  --tone-yellow: 250 200 0;
+  --tone-red: 239 68 68;
+  --tone-idle: 100 116 139;
+}
+
+[data-theme="light"] {
+  --background: #ffffff;
+  --panel-bg: #e9ecef;
+  --graph-bg: #ffffff;
+
+  --text: #0f172a;
+  --text-dim: #475569;
+  --text-faint: #64748b;
+
+  --panel-fill: rgba(255, 255, 255, 0.84);
+  --panel-border: rgba(15, 23, 42, 0.14);
+  --panel-hover: rgba(15, 23, 42, 0.06);
+  --panel-track: rgba(15, 23, 42, 0.1);
+
+  --rail-bg: #0b1220;
+  --rail-border: rgba(255, 255, 255, 0.1);
+
+  --page-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f8fafc 100%);
+  --grid-minor: rgba(71, 85, 105, 0.12);
+  --grid-major: rgba(71, 85, 105, 0.22);
+  --grid-axis: rgba(71, 85, 105, 0.38);
+
+  --wave: #0a9d3f;
+  --wave-soft: rgba(10, 157, 63, 0.18);
+
+  --accent: #2563eb;
+  --success: #15803d;
+  --warn: #b45309;
+  --danger: #dc2626;
+  --orange: #c2410c;
+  --purple: #7e22ce;
+  --cyan: #0e7490;
+  --pink: #be185d;
+
+  --beat-N: #0a9d3f;
+  --beat-S: #b45309;
+  --beat-V: #dc2626;
+  --beat-Q: #7e22ce;
+
+  /* Same two hues, stepped for the white surface and validated there. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --chart-grid: rgba(71, 85, 105, 0.16);
+  --chart-axis: rgba(71, 85, 105, 0.65);
+
+  --detect: #0284c7;
+
+  --delin-p: #be185d;
+  --delin-qrs: #0e7490;
+  --delin-t: #b45309;
+
+  --tone-blue: 37 99 235;
+  --tone-orange: 194 65 12;
+  --tone-cyan: 14 116 144;
+  --tone-purple: 126 34 206;
+  --tone-green: 21 128 61;
+  --tone-yellow: 180 83 9;
+  --tone-red: 220 38 38;
+  --tone-idle: 100 116 139;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  html {
+    overflow: hidden;
+  }
+
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: rgba(84, 162, 255, 0.35);
+  }
+}
+
+@layer components {
+  /* Floating panel: the `bg-black/60 backdrop-blur border-white/20 rounded-xl`
+     recipe used throughout the reference, made theme-aware. */
+  .panel {
+    background: var(--panel-fill);
+    border: 1px solid var(--panel-border);
+    border-radius: 0.75rem;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: var(--text);
+    box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.45);
+  }
+
+  .panel-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.125rem;
+    font-weight: 700;
+  }
+
+  .text-dim {
+    color: var(--text-dim);
+  }
+
+  .text-faint {
+    color: var(--text-faint);
+  }
+
+  .mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Round icon button in the left rail, matching the reference's 40px
+     translucent circles. Colour comes from the `--tone-rgb` triple. */
+  .rail-btn {
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    --tone-rgb: var(--tone-idle);
+    border: 1px solid rgba(var(--tone-rgb), 0.32);
+    background: rgba(var(--tone-rgb), 0.18);
+    color: rgb(var(--tone-rgb));
+    transition:
+      background-color 150ms ease,
+      transform 120ms ease;
+  }
+
+  .rail-btn[data-tone="blue"] {
+    --tone-rgb: var(--tone-blue);
+  }
+  .rail-btn[data-tone="orange"] {
+    --tone-rgb: var(--tone-orange);
+  }
+  .rail-btn[data-tone="cyan"] {
+    --tone-rgb: var(--tone-cyan);
+  }
+  .rail-btn[data-tone="purple"] {
+    --tone-rgb: var(--tone-purple);
+  }
+  .rail-btn[data-tone="green"] {
+    --tone-rgb: var(--tone-green);
+  }
+  .rail-btn[data-tone="yellow"] {
+    --tone-rgb: var(--tone-yellow);
+  }
+  .rail-btn[data-tone="red"] {
+    --tone-rgb: var(--tone-red);
+  }
+
+  .rail-btn[data-active="false"] {
+    --tone-rgb: var(--tone-idle);
+    border-color: rgba(var(--tone-rgb), 0.28);
+    background: rgba(var(--tone-rgb), 0.14);
+  }
+
+  .rail-btn:hover {
+    background: rgba(var(--tone-rgb), 0.32);
+  }
+
+  /* A keyboard user tabs through the rail with no pointer to hover with, so
+     without this the rail stayed 16 icons wide and every label -- the only
+     text that says what a button does -- was invisible. The ring is the same
+     one the charts use, so "you are here" looks the same everywhere. */
+  .rail-btn:focus-visible {
+    outline: 1px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .rail-btn:active {
+    transform: scale(0.94);
+  }
+
+  .icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    color: var(--text-dim);
+    transition:
+      color 150ms ease,
+      background-color 150ms ease;
+  }
+
+  .icon-btn:hover {
+    color: var(--text);
+    background: var(--panel-hover);
+  }
+
+  /* A panel's controls are reachable by Tab while it is open, including the
+     close button, so each one needs to look focused. */
+  .icon-btn:focus-visible {
+    outline: 1px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .seg-btn {
+    padding: 0.25rem 0.6rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    transition:
+      background-color 150ms ease,
+      color 150ms ease;
+  }
+
+  .seg-btn:hover {
+    color: var(--text);
+    background: var(--panel-hover);
+  }
+
+  .seg-btn[data-active="true"] {
+    background: rgba(var(--accent-rgb), 0.22);
+    color: var(--accent);
+  }
+
+  /* A focused chart draws its cursor, not a browser ring: the SVG is the
+     interactive target and an outline around the whole figure says nothing
+     about where the cursor is. The rule is the keyboard affordance. */
+  .chart-focusable:focus-visible {
+    outline: 1px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  .scrollable-content {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--panel-border) transparent;
+  }
+  .scrollable-content::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollable-content::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+  }
+
+  .scrollable-content::-webkit-scrollbar-thumb {
+    background: var(--panel-border);
+    border-radius: 10px;
+  }
+
+  /* Seek slider */
+  .seek {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 9999px;
+    background: var(--panel-border);
+    outline: none;
+    cursor: pointer;
+  }
+
+  .seek::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 13px;
+    height: 13px;
+    border-radius: 9999px;
+    background: var(--accent);
+    border: 2px solid var(--background);
+    box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.6);
+  }
+
+  .seek::-moz-range-thumb {
+    width: 13px;
+    height: 13px;
+    border: 2px solid var(--background);
+    border-radius: 9999px;
+    background: var(--accent);
+  }
+}

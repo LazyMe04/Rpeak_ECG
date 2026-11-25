@@ -1,0 +1,17 @@
+# Generated, vendored, or not ours to reformat.
+dist/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/icons/
+node_modules/
+public/
+
+# Lockfiles and build caches: rewritten by their tools, not by hand.
+package-lock.json
+tsconfig.tsbuildinfo
+
+# Data, not code. `keys_template.json` is a shape the classifier reads, and
+# `filterCoeffs.json` is written by pipeline/gen_filter_coeffs.py -- formatting
+# either would be undone the next time its generator runs.
+keys_template.json
+src/lib/filterCoeffs.json

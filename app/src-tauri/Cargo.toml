@@ -1,0 +1,36 @@
+[package]
+name = "rpeak"
+version = "0.1.0"
+description = "ECG monitoring and analysis with AI"
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "rpeak_lib"
+# `rlib` only, deliberately. Tauri's template also emits `staticlib` and
+# `cdylib` for the iOS/Android targets, and on the mingw (GNU) toolchain a
+# *debug* build of the cdylib overflows the PE export ordinal limit:
+#
+#   ld.exe: error: export ordinal too large: 87595
+#
+# Release builds survive it because LTO and `strip` shrink the symbol table,
+# which is why the packaged app linked and `tauri dev` did not until the
+# crate-type was narrowed. This project
+# ships Windows desktop only, so the mobile artefacts are dropped rather than
+# working around the limit; restoring them means moving to the MSVC toolchain.
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

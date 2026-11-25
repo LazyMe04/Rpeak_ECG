@@ -1,0 +1,52 @@
+Rpeak Desktop
+=============
+
+Two licences apply, and they cover different things.
+
+Source code
+-----------
+
+`app/`, `pipeline/` and `docs/` are MIT licensed. The full text is in LICENSE.
+
+That covers the TypeScript application, the Rust shell, the Python pipeline and
+these notes. It is a normal permissive licence: use, modify, redistribute, with
+the copyright notice kept.
+
+Data and model weights
+----------------------
+
+`data/` is not part of this repository (`docs/README.md` explains why: it is
+1.1 GB of downloaded material this project did not author). The ECG it holds is
+
+  Icentia11k Continuous ECG, via PhysioNet
+  https://physionet.org/content/icentia11k-continuous-ecg/
+  Licence: Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+           International (CC BY-NC-SA 4.0)
+           https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+The classifier weights in `data/models/` were trained on that data and are
+treated as a derivative of it: they carry the same CC BY-NC-SA 4.0 terms, not
+MIT. A build that ships the weights is a non-commercial, share-alike build.
+
+What that means in practice:
+
+  * attribution is required -- keep this notice with any copy of the data or
+    the weights;
+  * commercial use of the data or the weights is not permitted, and the licence
+    travels with anything derived from them;
+  * the MIT licence on the code grants nothing about the data.
+
+The bundled JavaScript dependencies (`app/package-lock.json`) and the Rust
+crates (`app/src-tauri/Cargo.lock`) carry their own licences, mostly MIT and
+Apache-2.0. The Python pipeline uses numpy, scipy, pandas, torch and Pillow,
+each under its own licence at the version installed.
+
+Third-party reference code
+--------------------------
+
+`app/src/lib/detect/gqrs.ts` is a port of the GQRS detrending and peak-detection
+algorithm from WFDB (`wfdb.processing.gqrs_detect`), which is part of the
+WFDB Python package, MIT licensed. `pipeline/*.py` uses `wfdb` to read the
+PhysioNet annotation files. The algorithm is reproduced with its quirks intact
+because the detector's measured performance depends on them; see
+`docs/detector.md` and the header comment in `gqrs.ts`.

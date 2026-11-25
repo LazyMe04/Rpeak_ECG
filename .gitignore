@@ -1,0 +1,34 @@
+# Build output and dependencies — reproducible from the lockfile.
+app/node_modules/
+app/dist/
+app/src-tauri/target/
+app/src-tauri/gen/
+
+# The dataset is 1.1 GB of downloaded PhysioNet material, not source. It is
+# derived by pipeline/ (download.py → convert.py → export_app_index.py) and
+# documented in docs/README.md#dataset-facts. Committing it would make every
+# clone a multi-gigabyte download of files we did not author.
+data/
+
+# Scratch: task output, one-off screen captures, headless-browser profiles (one
+# per smoke suite) and the npm cache. Nothing here is evidence anyone re-reads;
+# the screenshots that are documentation live in docs/shots/ and are committed.
+logs/
+.cache/
+
+# Packaging and editor noise.
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Never commit a local secrets file; the app has none today, and if it grows
+# one it should not arrive through a `git add .`.
+.env
+.env.*
+!.env.example
+
+# Python bytecode from pipeline/ runs.
+__pycache__/
+*.pyc
