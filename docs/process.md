@@ -28,7 +28,7 @@ There was no `.git` directory until G16. The tree had been living on the disk
 for fifteen milestones with no history, so "what changed and why" lived in these
 notes and nowhere else.
 
-The initial commit is 252 files. What is **not** in it, and why:
+The initial commit is 248 files. What is **not** in it, and why:
 
 | Excluded                         | Reason                                                                                                                               |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -37,6 +37,15 @@ The initial commit is 252 files. What is **not** in it, and why:
 | `app/src-tauri/target/`, `gen/`  | Derived from `Cargo.lock`.                                                                                                           |
 | `.cache/`, `logs/`               | Headless-browser profiles, npm cache, task output and one-off captures. The screenshots that are documentation are in `docs/shots/`. |
 | `.env`, `.env.*`                 | The app has no secrets today; if it grows one it must not arrive through `git add -A`.                                               |
+| `tsconfig.tsbuildinfo`           | `tsc`'s build cache, written next to the sources it derives from.                                                                    |
+| `keys_template.json` (×2)        | Written by `check_i18n.py --write`; regenerable, and stale the moment a string changes.                                              |
+
+The first three were easy to exclude by directory. The last two are written in
+place, beside the sources they describe, so only a name rule catches them — and
+the initial commit had caught three generated files and one scratch capture.
+They were removed before the repository was published, with history rewritten
+while the remote was still empty, because a clone should not carry an artefact
+that every run then dirties.
 
 `app/src-tauri/icons/` _is_ committed even though it is generated: the generator
 is Python + Pillow, and a build should not require Pillow to reproduce an icon
