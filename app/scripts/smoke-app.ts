@@ -20,8 +20,17 @@
  *   npx tsx scripts/smoke-app.ts [--exe path/to/rpeak.exe] [--shot out.png]
  */
 import { spawn } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { DATA_ROOT, MODELS } from "./lib/dataset";
@@ -242,10 +251,25 @@ async function main(): Promise<void> {
   console.log(`app ${EXE}`);
   console.log(`data ${NO_DATA_ENV ? "(resolved by the app)" : DATA_DIR}`);
 
+  // A WebView2 profile of its own, created empty and deleted afterwards. Every
+  // launch below shares it, so the first window sees the state a first-time
+  // reader gets — no stored language, no stored theme — and the checks that
+  // follow are reading this run, not the last one's leftovers. The default
+  // profile is deliberately not used: `localStorage` survives there, and the
+  // "ships in Vietnamese" check would then depend on how the previous run ended.
+  const PROFILE = mkdtempSync(join(tmpdir(), "rpeak-smoke-profile-"));
+  console.log(`profile ${PROFILE} (empty)`);
+
   const baseEnv: Record<string, string | undefined> = {
     ...process.env,
     // WebView2 forwards these to its Chromium instance.
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${CDP_PORT}`,
+    // Undocumented but honoured by the WebView2 loader: it is how the runtime
+    // is pointed at a data folder other than the app's default one for this
+    // user. Measured, not assumed: with it set the language pressed in one
+    // launch is still stored in the next, and a second empty folder starts at
+    // Vietnamese — which is what proves the folder is the profile.
+    WEBVIEW2_USER_DATA_FOLDER: PROFILE,
   };
   if (NO_DATA_ENV) delete baseEnv.RPEAK_DATA_DIR;
   else baseEnv.RPEAK_DATA_DIR = DATA_DIR;
@@ -269,67 +293,25 @@ async function main(): Promise<void> {
     // reader uses -- which also proves the switch renders and works here, where
     // there is no dev handle and no `?lang=` to lean on.
     //
-    // The window keeps its WebView2 profile between runs, so a previous run that
-    // left "en" stored would make "starts in Vietnamese" fail on the second
-    // invocation and pass on the first. Clear it and reload, then read the
-    // default a first-time reader would get.
+    // "Ships in Vietnamese" can only be read from a profile that has never been
+    // written to, and WebView2 keeps its `localStorage` in the profile between
+    // runs. An earlier version reset the storage from the page and reloaded;
+    // that raced the mount effect, which writes the old language back, and a
+    // run in three read the previous run's "en" as the shipped default. Every
+    // launch below instead shares one profile created empty for this run, so
+    // the first document is what a first-time reader gets, with nothing to
+    // reset and no reload to lose. The profile is deleted at the end.
     //
-    // The reload is the trap: `location.reload()` returns immediately and the
-    // old document stays live until the new one commits. The old document also
-    // has a language switch and a `lang` attribute, so a poll for those reads
-    // the *previous* run's "en" and reports it as the shipped default — a
-    // failure that appears once in three runs. A token set before the reload
-    // and required to be gone afterwards is what distinguishes the new document
-    // from the old one; the same fix as `smoke-lang`'s navigation token.
-    // The reset must happen *after* the app has mounted, or it undoes itself:
-    // `index.html` ships `<html lang="en">`, so a poll that waits only for a
-    // non-empty `lang` fires before React exists, `removeItem` runs against a
-    // provider that has not mounted yet, and the mount effect immediately
-    // writes "en" back. The proof that the effect has run is that the attribute
-    // agrees with what is stored — `storedLang()` is what the provider chose, so
-    // a mismatch means the write is still pending. This was measured: with the
-    // weaker condition, one run in three read `stored: "en"` on a profile that
-    // had been reset.
-    const cleared = await poll(
-      evaluate,
-      `(() => {
-        if (!document.body) return false;
-        if (!document.querySelector("[data-lang-switch]")) return false;
-        let stored = null;
-        try { stored = localStorage.getItem("rpeak.lang"); } catch { return false; }
-        // Absent storage means the provider fell back to the shipped default,
-        // which is Vietnamese.
-        const expected = stored === "en" || stored === "vi" ? stored : "vi";
-        if (document.documentElement.lang !== expected) return false;
-        try { localStorage.removeItem("rpeak.lang"); } catch { return false; }
-        window.__navToken = "reload";
-        location.reload();
-        return true;
-      })()`,
-      // A cold WebView2 start can take a while to mount on a loaded machine;
-      // the default of 80 × 250 ms was fine, the longer poll is not the point.
-      80,
-    );
-    if (!cleared) throw new Error("the app never mounted, so the default cannot be read");
-
-    // Two ways to read the wrong document, both seen on this machine: the
-    // reload returns before the new document commits, and inside the new one
-    // the switch renders a commit before `LocaleProvider`'s effect writes
-    // `document.documentElement.lang` — `index.html` ships `lang="en"`, so that
-    // gap reads English on a page about to become Vietnamese. The token rejects
-    // the old document. Polling until `lang === "vi"` would be wrong for the
-    // second gap: an app that really shipped in English would never match, the
-    // poll would exhaust, and the failure would land on "offers the language
-    // switch" rather than on the default that is actually wrong. So the loop
-    // below waits for the reading to stop changing and reports what it settled
-    // on; the assertions decide.
+    // What remains is `index.html` shipping `<html lang="en">` while React
+    // renders the Vietnamese switch a commit before `LocaleProvider`'s effect
+    // sets the attribute. So read until two consecutive readings agree and let
+    // the assertions judge -- polling for `lang === "vi"` would turn a build
+    // that really shipped in English into a failure on "offers the language
+    // switch" instead of on the default.
     let settled: { lang?: string; vi?: string } | null = null;
     let previous = "";
     for (let i = 0; i < 60 && !settled; i++) {
       const now = (await evaluate(`(() => {
-        // A document that still carries the token is the one that asked for the
-        // reload, not the one it produced.
-        if ("__navToken" in window) return "";
         if (!document.querySelector("[data-lang-switch]")) return "";
         const vi = document.querySelector('[data-lang="vi"]');
         return JSON.stringify({
@@ -743,6 +725,22 @@ async function main(): Promise<void> {
     app.stop();
     // Leave no remembered folder behind for the next run, whatever happened.
     rmSync(CONFIG, { force: true });
+    // The profile is this run's alone; delete it rather than grow the temp
+    // directory by 7 MB a run. The kill above is asynchronous and the WebView2
+    // helper processes outlive it by a moment, still holding files open, so a
+    // single attempt right after `kill()` loses — measured: every run left its
+    // folder behind. Retry briefly instead; if the last attempt still loses, it
+    // is not a test failure, because the next run makes its own folder anyway.
+    for (let i = 0; i < 20; i++) {
+      try {
+        rmSync(PROFILE, { recursive: true, force: true });
+        if (!existsSync(PROFILE)) break;
+      } catch {
+        /* a helper process still has a file open */
+      }
+      if (i === 19) console.log(`  note  could not remove ${PROFILE}; leaving it to temp cleanup`);
+      else await sleep(250);
+    }
   }
 
   console.log(
