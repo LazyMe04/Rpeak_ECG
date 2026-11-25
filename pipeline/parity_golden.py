@@ -9,7 +9,8 @@ a real segment is ~7e11, far inside 2^53).
 Usage:
   python -I parity_golden.py [record ...]
 
-Writes D:/Rpeak-Desktop/data/catalog/golden/<record>.json plus .f64 files.
+Writes <repo>/data/catalog/golden/<record>.json plus .f64 files (`RPEAK_ROOT`
+moves the data root; see config.py).
 """
 from __future__ import annotations
 
