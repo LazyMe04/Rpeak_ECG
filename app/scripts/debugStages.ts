@@ -9,9 +9,11 @@ import { join } from "node:path";
 
 import { PanTompkinsDetector } from "../src/lib/panTompkins.ts";
 import { makeQrsFilter } from "../src/lib/filters.ts";
+import { CATALOG, REPO_ROOT } from "./lib/dataset";
 
-const ROOT = "D:/Rpeak-Desktop";
-const F32 = join(ROOT, "data/catalog/f32");
+const F32 = join(CATALOG, "f32");
+// ROOT is still needed for the debug dump below, which sits beside the app.
+const ROOT = REPO_ROOT;
 
 const record = process.argv[2] ?? "p00000_s00";
 const n = Number(process.argv[3] ?? 20000);

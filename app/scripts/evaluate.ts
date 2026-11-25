@@ -24,9 +24,8 @@ import { join } from "node:path";
 
 import { detectV4 } from "../src/lib/detect/detectV4";
 import { scoreWeighted } from "../src/lib/detect/score";
+import { CATALOG } from "./lib/dataset";
 
-const ROOT = "D:/Rpeak-Desktop";
-const CATALOG = join(ROOT, "data/catalog");
 const F32 = join(CATALOG, "f32");
 const SEG = join(CATALOG, "segments");
 

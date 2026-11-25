@@ -11,9 +11,8 @@
  *   npx tsx scripts/test-cnn.ts
  *   npx tsx scripts/test-cnn.ts --model ../data/models/beatcnn.json
  */
-import { readFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import {
   CLASSES,
@@ -27,15 +26,18 @@ import {
   standardiseExtra,
 } from "../src/lib/ecg/cnn";
 import type { CnnDoc } from "../src/lib/ecg/cnn";
-
-const here = dirname(fileURLToPath(import.meta.url));
+import { MODELS } from "./lib/dataset";
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(name);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1]! : fallback;
 }
 
-const MODEL = arg("--model", resolve(here, "../../data/models/beatcnn.json"));
+// The model is trained on the dataset, so it is not in the repository either:
+// a fresh clone has no `data/models/beatcnn.json` until `pipeline/` rebuilds
+// it. Skipping rather than failing keeps the commit hook usable there; the
+// so a missing file prints SKIPPED and exits 0.
+const MODEL = arg("--model", resolve(MODELS, "beatcnn.json"));
 const TOL = Number(arg("--tol", "2e-4"));
 
 let failures = 0;
@@ -45,6 +47,11 @@ function check(name: string, ok: boolean, detail = "") {
 }
 
 function main() {
+  if (!existsSync(MODEL)) {
+    console.log(`SKIPPED test:cnn: no model at ${MODEL}`);
+    console.log(`        rebuild it with pipeline/, or pass --model.`);
+    return;
+  }
   console.log(`model ${MODEL}`);
   const doc = JSON.parse(readFileSync(MODEL, "utf8")) as CnnDoc;
 

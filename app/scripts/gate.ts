@@ -28,6 +28,8 @@ import { existsSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { DATA_ROOT, hasDataset } from "./lib/dataset";
+
 const here = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(here, "..");
 const ROOT = resolve(APP, "..");
@@ -44,6 +46,14 @@ interface Stage {
   repeatable?: boolean;
   /** Only with --browser. */
   browser?: boolean;
+  /**
+   * Reads `data/`, which is deliberately not in the repository. On a clone
+   * without it the stage is reported skipped rather than run: the suite would
+   * print SKIPPED and exit 0 anyway, but spawning five processes to do nothing
+   * and then parsing their output is a fragile way to learn what this flag
+   * says directly.
+   */
+  dataBacked?: boolean;
 }
 
 const STAGES: Stage[] = [
@@ -105,6 +115,7 @@ const STAGES: Stage[] = [
     args: ["tsx", resolve(here, "test-detect.ts")],
     cwd: APP,
     why: "Every detector stage against the Python goldens.",
+    dataBacked: true,
   },
   {
     name: "hrv unit",
@@ -112,6 +123,7 @@ const STAGES: Stage[] = [
     args: ["tsx", resolve(here, "test-hrv.ts")],
     cwd: APP,
     why: "HRV statistics against the Python reference.",
+    dataBacked: true,
   },
   {
     name: "delineate unit",
@@ -119,6 +131,7 @@ const STAGES: Stage[] = [
     args: ["tsx", resolve(here, "test-delineate.ts")],
     cwd: APP,
     why: "PQRST timing against a synthetic golden.",
+    dataBacked: true,
   },
   {
     name: "report unit",
@@ -126,6 +139,7 @@ const STAGES: Stage[] = [
     args: ["tsx", resolve(here, "test-report.ts")],
     cwd: APP,
     why: "The session report and both exports match the data they describe.",
+    dataBacked: true,
   },
   {
     name: "cnn unit",
@@ -133,6 +147,7 @@ const STAGES: Stage[] = [
     args: ["tsx", resolve(here, "test-cnn.ts")],
     cwd: APP,
     why: "PyTorch logits against the TypeScript forward pass.",
+    dataBacked: true,
   },
   {
     name: "bundle",
@@ -149,6 +164,7 @@ const STAGES: Stage[] = [
     why: "Playback, workers, boundaries and the dialog behaviour, live.",
     repeatable: true,
     browser: true,
+    dataBacked: true,
   },
   {
     name: "smoke:pages",
@@ -158,6 +174,7 @@ const STAGES: Stage[] = [
     why: "The model card, the guide and page navigation.",
     repeatable: true,
     browser: true,
+    dataBacked: true,
   },
   {
     name: "smoke:lang",
@@ -167,6 +184,7 @@ const STAGES: Stage[] = [
     why: "The shipped default is Vietnamese, and every page follows it.",
     repeatable: true,
     browser: true,
+    dataBacked: true,
   },
   {
     name: "smoke:theme",
@@ -176,6 +194,7 @@ const STAGES: Stage[] = [
     why: "Both palettes, measured for contrast rather than photographed.",
     repeatable: true,
     browser: true,
+    dataBacked: true,
   },
   {
     name: "smoke:app",
@@ -185,6 +204,7 @@ const STAGES: Stage[] = [
     why: "The packaged exe, including that it was rebuilt.",
     repeatable: true,
     browser: true,
+    dataBacked: true,
   },
 ];
 
@@ -255,8 +275,26 @@ if (skipped.length > 0) {
   console.log(`gate: not run: ${skipped.map((s) => s.name).join(", ")} (use --browser)`);
 }
 
+/**
+ * A stage that did not run is not a stage that passed.
+ *
+ * The data-backed suites need `data/`, which is deliberately not in the
+ * repository. Counting their skip as `ok` would let a green gate mean "nothing
+ * was checked", which is the exact failure mode this script exists to prevent --
+ * so they are named in the summary and the count is "7/12", not "all".
+ */
+const haveData = hasDataset();
+const skippedBySelf = stages.filter((s) => s.dataBacked && !haveData).map((s) => s.name);
+if (!haveData && skippedBySelf.length > 0) {
+  console.log(`gate: no dataset at ${DATA_ROOT}; data-backed stages will be skipped`);
+}
+
 const t0 = Date.now();
 for (const stage of stages) {
+  if (stage.dataBacked && !haveData) {
+    console.log(`\n── ${stage.name} SKIPPED (no dataset at ${DATA_ROOT})`);
+    continue;
+  }
   const runs = stage.repeatable ? repeat : 1;
   for (let i = 0; i < runs; i++) {
     const suffix = runs > 1 ? ` (${i + 1}/${runs})` : "";
@@ -282,6 +320,17 @@ for (const stage of stages) {
   }
 }
 
+const ran = stages.length - skippedBySelf.length;
+if (skippedBySelf.length > 0) {
+  console.log(
+    `\ngate: ${ran}/${stages.length} stages ran; skipped for want of a dataset: ` +
+      `${skippedBySelf.join(", ")}\n  this gate did not check those stages.`,
+  );
+}
+
 console.log(
-  `\ngate: all ${stages.length} stages passed in ${((Date.now() - t0) / 1000).toFixed(0)}s`,
+  skippedBySelf.length > 0
+    ? `\ngate: ${ran}/${stages.length} stages passed in ${((Date.now() - t0) / 1000).toFixed(0)}s; ` +
+        `${skippedBySelf.length} skipped (see above)`
+    : `\ngate: all ${stages.length} stages passed in ${((Date.now() - t0) / 1000).toFixed(0)}s`,
 );

@@ -13,6 +13,9 @@
  */
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { join } from "node:path";
+
+import { REPO_ROOT } from "./lib/dataset";
 
 const PORT = Number(argValue("--port") ?? 5173);
 const CDP_PORT = 9333;
@@ -101,7 +104,7 @@ async function main(): Promise<void> {
       "--no-first-run",
       "--mute-audio",
       `--remote-debugging-port=${CDP_PORT}`,
-      `--user-data-dir=D:/Rpeak-Desktop/.cache/edge-smoke`,
+      `--user-data-dir=${join(REPO_ROOT, ".cache/edge-smoke")}`,
       "--window-size=1400,860",
       URL_,
     ],

@@ -89,7 +89,7 @@ rather than reproduced.
 ## Running
 
 ```
-cd D:\Rpeak-Desktop\app
+cd app
 npm run dev         # http://localhost:5173
 npm run test        # 13 assertions on the shell primitives
 npm run test:detect # every detector stage vs the Python goldens
@@ -115,6 +115,13 @@ npm run gate -- --browser --repeat 3   # plus the browser suites, three times ea
 `npm run gate` is the one command to run before believing a change is good; the
 stages, the pre-commit hook and the lint/format setup are described in
 [process.md](process.md).
+
+The dataset is found at `RPEAK_DATA_DIR`, or else at `<repo>/data` — never from
+the current directory. The same variable is read by the dev server
+(`vite.config.ts`), every script in `app/scripts/`, and the packaged exe, so one
+setting points all of them at one dataset. Python uses `RPEAK_ROOT` for the same
+purpose. A stage with no dataset to read reports `SKIPPED` and exits 0, and the
+gate's footer counts it as not run rather than passed.
 
 Classifier work, in the pipeline (`python -I`, from `pipeline/`):
 

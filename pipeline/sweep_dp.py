@@ -14,6 +14,8 @@ Usage:
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import json
 import itertools
 import sys
@@ -21,7 +23,7 @@ import warnings
 
 import numpy as np
 
-sys.path.insert(0, "D:/Rpeak-Desktop/pipeline")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from config import CATALOG  # noqa: E402
 from detect import load  # noqa: E402
 from detect4 import band, score_weighted  # noqa: E402

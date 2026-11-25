@@ -22,6 +22,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { DATA_ROOT, MODELS } from "./lib/dataset";
+
 const here = dirname(fileURLToPath(import.meta.url));
 const CDP_PORT = 9444;
 
@@ -31,7 +33,7 @@ const CDP_PORT = 9444;
  * literal here would go stale on the next retrain and fail for the wrong reason.
  */
 function storedParamCount(): string {
-  const model = JSON.parse(readFileSync(resolve(here, "../../data/models/beatcnn.json"), "utf8"));
+  const model = JSON.parse(readFileSync(resolve(MODELS, "beatcnn.json"), "utf8"));
   const n =
     model.blocks.reduce(
       (s: number, b: { conv: { w: number[][][]; b: number[] } }) =>
@@ -55,8 +57,9 @@ const EXE = resolve(here, arg("--exe", "../src-tauri/target/release/rpeak.exe"))
 const SHOT = arg("--shot", "");
 // A release build only looks beside the exe for `data/`, which is the right
 // behaviour for a shipped app and useless for a test run against the repo.
-// Point it at the repository dataset unless the caller says otherwise.
-const DATA_DIR = resolve(here, arg("--data", "../../data"));
+// Point it at the resolved dataset unless the caller says otherwise, so
+// `RPEAK_DATA_DIR` reaches the exe the same way it reaches every other script.
+const DATA_DIR = resolve(here, arg("--data", DATA_ROOT));
 // Set by `--no-data-env`, which is how the portable layout is tested: the app
 // must find `data/` beside its own executable without being told.
 const NO_DATA_ENV = process.argv.includes("--no-data-env");

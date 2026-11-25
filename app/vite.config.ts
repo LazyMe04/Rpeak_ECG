@@ -5,14 +5,21 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * The ECG catalogue lives outside the app root (D:\Rpeak-Desktop\data) so the
- * same bytes are shared by the Python pipeline, the offline evaluator and the
- * app. Vite will not serve outside its root by default, so mount it at /data.
+ * The ECG catalogue lives outside the app root so the same bytes are shared by
+ * the Python pipeline, the offline evaluator and the app. Vite will not serve
+ * outside its root by default, so mount it at /data.
+ *
+ * The location follows the same rule as `scripts/lib/dataset.ts` and the
+ * packaged app: `RPEAK_DATA_DIR` if set, otherwise `<repo>/data`. It used to be
+ * a bare `../data`, which meant the dev server and the suites could disagree
+ * about which dataset they were testing.
  *
  * Range requests are honoured: the 4 MB f32 files load fine in one request,
  * but range support keeps `curl` and any future streaming source honest.
  */
-const DATA_ROOT = path.resolve(fileURLToPath(new URL("../data", import.meta.url)));
+const DATA_ROOT = path.resolve(
+  process.env.RPEAK_DATA_DIR ?? fileURLToPath(new URL("../data", import.meta.url)),
+);
 
 function serveDataset(): Plugin {
   const handler = (

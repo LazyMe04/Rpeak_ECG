@@ -22,18 +22,23 @@ npm install
 npm run dev          # http://localhost:5173, needs ../data (see below)
 ```
 
-The app reads `D:\Rpeak-Desktop\data`, which is **not** in the repository: it is
-1.1 GB of downloaded Icentia11k material. `pipeline/` rebuilds it:
-`download.py` → `convert.py` → `export_f32.py` → `export_app_index.py`. The full
-path, and the dataset's layout, are in [docs/README.md](docs/README.md).
+The app reads `<repo>/data` (`RPEAK_DATA_DIR` overrides it — the dev server, the
+scripts and the packaged exe all honour the same variable), which is **not** in
+the repository: it is 1.1 GB of downloaded Icentia11k material. `pipeline/`
+rebuilds it: `download.py` → `convert.py` → `export_f32.py` →
+`export_app_index.py`. The full path, and the dataset's layout, are in
+[docs/README.md](docs/README.md).
 
 To run the quality gate — the one command to run before believing a change:
 
 ```
 cd app
-npm run gate               # twelve stages, ~46 s, no browser needed
-npm run gate -- --browser  # plus five CDP smoke suites, ~89 s
+npm run gate               # twelve stages, no browser needed
+npm run gate -- --browser  # plus five CDP smoke suites, all seventeen
 ```
+
+Ten of the seventeen stages read `data/`; without it they report `SKIPPED` and
+the footer says `7/17 stages ran` rather than pretending they passed.
 
 ## Documentation
 

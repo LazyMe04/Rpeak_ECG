@@ -75,6 +75,51 @@ code written the same session, which the editor had not flagged.
 Bypass is deliberately visible — `git commit --no-verify` — rather than hidden
 behind an environment variable.
 
+### The defect the hook had on day one
+
+The hook ran seven unit suites, and **six of them read `data/`** — four through
+a hard-coded `D:/Rpeak-Desktop/data/catalog`. Since the dataset is deliberately
+not in the repository, the consequence was:
+
+- a fresh clone could not commit anything: every data-backed suite would fail
+  with `ENOENT`, and the failure looks like broken code, not a missing dataset;
+- a clone to any other path would read _another checkout's_ data, which is
+  worse than failing — it passes on the wrong files.
+
+Both are fixed, and verified by running the hook with and without a dataset:
+
+```
+$ RPEAK_DATA_DIR=/tmp/no-data sh .githooks/pre-commit
+  test           ok
+  test:detect    skipped (no dataset)
+  ...
+pre-commit: note -- not checked for want of a dataset: test:detect test:hrv ...
+pre-commit: ok (browser suites: npm run gate -- --browser)
+```
+
+The mechanism is `app/scripts/lib/dataset.ts`, which resolves the data root from
+`RPEAK_DATA_DIR` (the same variable the packaged app honours) or from the
+repository's own location, never from the cwd. A suite that cannot do its work
+without data prints `SKIPPED` and exits 0; the commit hook and the gate both
+read that and say so, so a green gate never means "nothing was checked".
+
+The same refactor removed every remaining hard-coded `D:/Rpeak-Desktop`: the
+five smoke suites' browser profiles and their model-artefact reads, `evaluate.ts`,
+`debugStages.ts`, and — the larger half — `pipeline/`. `pipeline/config.py` now
+derives `ROOT` from its own file, and 34 probes that reached for the directory
+with `sys.path.insert(0, "D:/Rpeak-Desktop/pipeline")` now use
+`Path(__file__).resolve().parent`. `RPEAK_ROOT` overrides it for a data
+directory on another drive.
+
+`vite.config.ts` was the last place still resolving `../data` by hand, which
+mattered because the dev server and the suites argue about the same files: a
+smoke run under `RPEAK_DATA_DIR` would have had the scripts read one dataset
+while the page they drove was served another. It resolves the same variable now,
+so the setting reaches the page, the scripts and the exe.
+
+This mattered more than it looks: a repository whose own quality gate only works
+on one machine is a repository with no gate.
+
 ## `npm run gate`
 
 `app/scripts/gate.ts` runs every stage in order and stops at the first failure.
@@ -100,13 +145,21 @@ Three design decisions worth keeping:
 1. **Every stage carries its `why`**, printed by `--list` and on failure. A
    gate that fails without saying what it was protecting is a gate people turn
    off.
-2. **Skipped stages are printed every run.** A green gate that silently omitted
-   four suites is worse than no gate, because it is a claim that is not true.
+2. **A skipped stage is reported, not counted.** A green gate that silently
+   omitted ten stages is worse than no gate, because it is a claim that is not
+   true. The ten data-backed stages — five unit suites and all five browser
+   suites, which derive their expected figures from `data/models/*.json` — are
+   flagged `dataBacked` in the stage list, so without a dataset the gate prints
+   `7/12 stages ran` (or `7/17` with `--browser`) and names what it did not
+   check, rather than `all 12 passed`.
 3. **`--repeat N` multiplies only the timing-dependent stages.** A smoke suite
    that fails once in six runs means a green run means nothing; the repeat exists
    to make a flake visible rather than to be lenient about it.
 
-On this machine, `npm run gate` is 46 s and `npm run gate -- --browser` is 89 s.
+Measured on this machine: `npm run gate -- --browser` is 85–100 s, all 17 stages
+green. With no dataset that same command is 28 s and says `7/17`. The non-browser
+gate is 42–66 s with a dataset and 28 s without — the spread is the bundle build
+and the smokes competing with whatever else is on the CPU.
 
 `smoke:app` drives whatever binary is on disk, and the packaging trap from G6 is
 a build that exits 0 without rebuilding. The gate cannot prove the exe matches

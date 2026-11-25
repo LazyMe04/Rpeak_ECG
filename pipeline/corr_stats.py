@@ -5,11 +5,13 @@ everything else, so the decision threshold can be set from data.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import sys
 
 import numpy as np
 
-sys.path.insert(0, "D:/Rpeak-Desktop/pipeline")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from detect import load  # noqa: E402
 from detect5 import band, detect  # noqa: E402
 

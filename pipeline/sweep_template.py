@@ -2,11 +2,13 @@
 short to lock onto the whole QRS complex."""
 from __future__ import annotations
 
+from pathlib import Path
+
 import sys
 
 import numpy as np
 
-sys.path.insert(0, "D:/Rpeak-Desktop/pipeline")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from detect import load  # noqa: E402
 from detect4 import band, envelope, pearson_window  # noqa: E402
 from detect5 import build_template_from, select_beats  # noqa: E402

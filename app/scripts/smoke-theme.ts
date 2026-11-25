@@ -17,7 +17,10 @@
  */
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { join } from "node:path";
+
 import { contrast, over, parseColor, type Rgb } from "./lib/contrast";
+import { REPO_ROOT } from "./lib/dataset";
 
 const PORT = Number(argValue("--port") ?? 5173);
 const CDP_PORT = 9337;
@@ -124,7 +127,7 @@ async function main(): Promise<void> {
       `--remote-debugging-port=${CDP_PORT}`,
       // Its own profile: the theme is persisted, and a run must not inherit the
       // previous run's choice.
-      `--user-data-dir=D:/Rpeak-Desktop/.cache/edge-smoke-theme`,
+      `--user-data-dir=${join(REPO_ROOT, ".cache/edge-smoke-theme")}`,
       "--window-size=1400,900",
       URL_,
     ],

@@ -5,11 +5,13 @@ and the reconstructed RR series side by side.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import sys
 
 import numpy as np
 
-sys.path.insert(0, "D:/Rpeak-Desktop/pipeline")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from detect import load  # noqa: E402
 from detect5 import band, detect, refine_wide  # noqa: E402
 

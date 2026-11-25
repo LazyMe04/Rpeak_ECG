@@ -1,10 +1,19 @@
-"""Central configuration. All paths are absolute and confined to ROOT."""
+"""Central configuration. All paths are absolute and confined to ROOT.
+
+ROOT is derived from this file's location, not hard-coded: `config.py` lives
+in `<repo>/pipeline`, so the repository can be cloned anywhere. `RPEAK_ROOT`
+overrides it for the case the layout does not imply -- a data directory on
+another drive, which is what the packaged app's `RPEAK_DATA_DIR` does for the
+same reason.
+"""
 from __future__ import annotations
 
 import os
 from pathlib import Path
 
-ROOT = Path(r"D:\Rpeak-Desktop")
+# `pipeline/config.py` -> `<repo>`. Resolved, because every path below is
+# built on it and a relative ROOT would make mkdir() depend on the cwd.
+ROOT = Path(os.environ.get("RPEAK_ROOT") or Path(__file__).resolve().parent.parent)
 
 DATA = ROOT / "data"
 RAW = DATA / "raw"            # WFDB triples exactly as downloaded (.hea/.dat/.atr)

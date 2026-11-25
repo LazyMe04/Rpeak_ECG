@@ -17,10 +17,9 @@
  */
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 
-const here = dirname(fileURLToPath(import.meta.url));
+import { MODELS, REPO_ROOT } from "./lib/dataset";
 
 /**
  * The figures the model card must show, read from the same artefacts the page
@@ -30,7 +29,7 @@ const here = dirname(fileURLToPath(import.meta.url));
  * "the page shows what the file says", which is the property that matters.
  */
 function expectedModelCard() {
-  const dir = resolve(here, "../../data/models");
+  const dir = MODELS;
   const train = JSON.parse(readFileSync(resolve(dir, "beatcnn.train.json"), "utf8"));
   const evalDoc = JSON.parse(readFileSync(resolve(dir, "beatcnn.eval.json"), "utf8"));
   const model = JSON.parse(readFileSync(resolve(dir, "beatcnn.json"), "utf8"));
@@ -154,7 +153,7 @@ async function main(): Promise<void> {
       "--no-first-run",
       "--mute-audio",
       `--remote-debugging-port=${CDP_PORT}`,
-      `--user-data-dir=D:/Rpeak-Desktop/.cache/edge-smoke-pages`,
+      `--user-data-dir=${join(REPO_ROOT, ".cache/edge-smoke-pages")}`,
       "--window-size=1400,900",
       URL_,
     ],

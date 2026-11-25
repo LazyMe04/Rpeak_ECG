@@ -1,13 +1,15 @@
 """Check whether candidate snapping loses beats, and why."""
 from __future__ import annotations
 
+from pathlib import Path
+
 import sys
 
 import numpy as np
 from scipy import signal as sps
 from scipy.ndimage import percentile_filter
 
-sys.path.insert(0, "D:/Rpeak-Desktop/pipeline")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from detect import load  # noqa: E402
 from detect4 import band, envelope  # noqa: E402
 

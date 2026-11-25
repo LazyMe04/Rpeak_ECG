@@ -10,15 +10,12 @@
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
+import { CATALOG, hasDataset } from "./lib/dataset";
 import { RingBuffer } from "../src/lib/signal/ringBuffer.ts";
 import { AnnotationTrack } from "../src/lib/signal/annotations.ts";
 import type { SignalSource } from "../src/lib/signal/types.ts";
 import type { Beat } from "../src/lib/signal/types.ts";
-
-const ROOT = "D:/Rpeak-Desktop";
-const CATALOG = join(ROOT, "data/catalog");
 
 let failures = 0;
 function test(name: string, fn: () => void): void {
@@ -69,11 +66,27 @@ test("ring: wraps correctly across many pushes", () => {
 
 /* ----------------------------------------------------------- annotation ---- */
 
-const ann = JSON.parse(readFileSync(join(CATALOG, "segments/p00000_s00.ann.json"), "utf8")) as {
-  beats: Beat[];
-};
+/**
+ * The five annotation checks read one segment's annotations. Without a dataset
+ * they are skipped rather than failed: the dataset is deliberately not in the
+ * repository, so a fresh clone has none until `pipeline/` rebuilds it, and the
+ * commit hook must not block that clone forever.
+ */
+const ann = hasDataset()
+  ? (JSON.parse(readFileSync(`${CATALOG}/segments/p00000_s00.ann.json`, "utf8")) as {
+      beats: Beat[];
+    })
+  : null;
 
-test("annotation: lowerBound matches a linear scan", () => {
+function dataTest(name: string, fn: (a: { beats: Beat[] }) => void): void {
+  if (!ann) {
+    console.log(`  skip ${name} (no dataset)`);
+    return;
+  }
+  test(name, () => fn(ann));
+}
+
+dataTest("annotation: lowerBound matches a linear scan", (ann) => {
   const t = new AnnotationTrack(ann.beats);
   for (const probe of [0, 28, 29, 190, 5000, 5001, 1_048_576, -5]) {
     const want = t.beats.findIndex((b) => b.sample >= probe);
@@ -81,7 +94,7 @@ test("annotation: lowerBound matches a linear scan", () => {
   }
 });
 
-test("annotation: range is inclusive at both ends", () => {
+dataTest("annotation: range is inclusive at both ends", (ann) => {
   const t = new AnnotationTrack(ann.beats);
   const lo = t.beats[10].sample;
   const hi = t.beats[20].sample;
@@ -91,7 +104,7 @@ test("annotation: range is inclusive at both ends", () => {
   assert.equal(got[10].sample, hi);
 });
 
-test("annotation: medianRR over a regular stretch is close to the true RR", () => {
+dataTest("annotation: medianRR over a regular stretch is close to the true RR", (ann) => {
   const t = new AnnotationTrack(ann.beats);
   const at = t.beats[500].sample;
   const rr = t.medianRR(at, 250, 12);
@@ -100,12 +113,12 @@ test("annotation: medianRR over a regular stretch is close to the true RR", () =
   assert.ok(Math.abs(rr! - trueRR) < 15, `rr=${rr} true=${trueRR}`);
 });
 
-test("annotation: medianRR returns null instead of guessing", () => {
+dataTest("annotation: medianRR returns null instead of guessing", (ann) => {
   const t = new AnnotationTrack(ann.beats);
   assert.equal(t.medianRR(0, 250, 12), null);
 });
 
-test("annotation: countsUpTo agrees with a filter", () => {
+dataTest("annotation: countsUpTo agrees with a filter", (ann) => {
   const t = new AnnotationTrack(ann.beats);
   const at = 200_000;
   const c = t.countsUpTo(at);

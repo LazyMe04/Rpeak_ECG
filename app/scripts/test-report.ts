@@ -30,7 +30,10 @@ import {
 import type { AnnotationTrack } from "../src/lib/signal/annotations";
 import type { Beat, BeatSymbol } from "../src/lib/signal/types";
 
-const CAT = "D:/Rpeak-Desktop/data/catalog";
+import { CATALOG as CAT, requireDataset } from "./lib/dataset";
+
+if (!requireDataset("test:report")) process.exit(0);
+
 const RECORD = "p00000_s00";
 const FS = 250;
 

@@ -12,6 +12,9 @@
  */
 import { spawn } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { REPO_ROOT } from "./lib/dataset";
 
 function arg(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(name);
@@ -74,7 +77,7 @@ async function main(): Promise<void> {
       "--mute-audio",
       "--hide-scrollbars",
       `--remote-debugging-port=${CDP_PORT}`,
-      `--user-data-dir=D:/Rpeak-Desktop/.cache/edge-shot`,
+      `--user-data-dir=${join(REPO_ROOT, ".cache/edge-shot")}`,
       `--window-size=${SIZE}`,
       URL_,
     ],

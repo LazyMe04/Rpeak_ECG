@@ -21,8 +21,10 @@
 import { readFileSync } from "node:fs";
 
 import { delineateSegment, intervals } from "../src/lib/ecg/delineate";
+import { CATALOG as CAT, requireDataset } from "./lib/dataset";
 
-const CAT = "D:/Rpeak-Desktop/data/catalog";
+if (!requireDataset("test:delineate")) process.exit(0);
+
 const G4 = `${CAT}/g4`;
 
 function readF32(file: string): Float32Array {

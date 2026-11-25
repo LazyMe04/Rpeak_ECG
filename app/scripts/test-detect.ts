@@ -17,8 +17,10 @@ import fs from "node:fs";
 import { detectV4 } from "../src/lib/detect/detectV4";
 import { adcParams, gqrsDetect, toDigital24 } from "../src/lib/detect/gqrs";
 import { runTwomax } from "../src/lib/detect/twomax";
+import { CATALOG as DATA, requireDataset } from "./lib/dataset";
 
-const DATA = "D:/Rpeak-Desktop/data/catalog";
+if (!requireDataset("test:detect")) process.exit(0);
+
 const GOLDEN = `${DATA}/golden`;
 
 interface Meta {

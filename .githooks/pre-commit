@@ -18,8 +18,25 @@ set -e
 
 cd "$(dirname "$0")/../app"
 
+# A Python launcher to use. `python -I` is the right invocation (the pipeline
+# reads downloaded files), but a clone may have only `py` or `python3`, and a
+# hook that dies on a missing alias is a hook people bypass.
+PY=""
+for candidate in python py python3; do
+  if command -v "$candidate" >/dev/null 2>&1; then
+    PY="$candidate"
+    break
+  fi
+done
+
 echo "pre-commit: i18n audit"
-python -I ../pipeline/check_i18n.py
+if [ -z "$PY" ]; then
+  echo "  SKIPPED: no Python launcher found (python / py / python3)"
+elif "$PY" -I -c "" 2>/dev/null; then
+  "$PY" -I ../pipeline/check_i18n.py
+else
+  "$PY" ../pipeline/check_i18n.py
+fi
 
 echo "pre-commit: format"
 npx prettier --check "src/**/*.{ts,tsx,css}" "scripts/**/*.ts" "*.{ts,js,json,html}" \
@@ -31,16 +48,32 @@ npx eslint src scripts
 echo "pre-commit: typecheck"
 npx tsc --noEmit
 
+# Suites that need `data/` print `SKIPPED ...` and exit 0, because the dataset
+# is deliberately not in the repository. That is reported here rather than
+# counted as a pass: a commit whose only test evidence is skips should say so.
 echo "pre-commit: unit suites"
+SKIPPED=""
 for suite in test test:detect test:hrv test:delineate test:report test:cnn test:i18n; do
   printf "  %-14s " "$suite"
-  if npm run --silent "$suite" >/tmp/rpeak-precommit.log 2>&1; then
-    echo "ok"
+  log="$(mktemp)"
+  if npm run --silent "$suite" >"$log" 2>&1; then
+    if grep -q '^SKIPPED ' "$log"; then
+      echo "skipped (no dataset)"
+      SKIPPED="$SKIPPED $suite"
+    else
+      echo "ok"
+    fi
   else
     echo "FAILED"
-    tail -20 /tmp/rpeak-precommit.log
+    tail -20 "$log"
+    rm -f "$log"
     exit 1
   fi
+  rm -f "$log"
 done
+
+if [ -n "$SKIPPED" ]; then
+  echo "pre-commit: note -- not checked for want of a dataset:$SKIPPED"
+fi
 
 echo "pre-commit: ok (browser suites: npm run gate -- --browser)"

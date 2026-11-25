@@ -13,8 +13,11 @@
 import fs from "node:fs";
 
 import { computeHrv } from "../src/lib/ecg/hrv";
+import { CATALOG, requireDataset } from "./lib/dataset";
 
-const DATA = "D:/Rpeak-Desktop/data/catalog/g4";
+if (!requireDataset("test:hrv")) process.exit(0);
+
+const DATA = `${CATALOG}/g4`;
 
 interface Freq {
   vlf: number;

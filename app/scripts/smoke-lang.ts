@@ -19,16 +19,13 @@
  */
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 
-const here = dirname(fileURLToPath(import.meta.url));
+import { MODELS, REPO_ROOT } from "./lib/dataset";
 
 /** The accuracy the model card must show, derived from the artefact it reads. */
 function heldOutAccuracy() {
-  const evalDoc = JSON.parse(
-    readFileSync(resolve(here, "../../data/models/beatcnn.eval.json"), "utf8"),
-  );
+  const evalDoc = JSON.parse(readFileSync(resolve(MODELS, "beatcnn.eval.json"), "utf8"));
   const v = evalDoc.pooled.accuracy * 100;
   const one = { minimumFractionDigits: 1, maximumFractionDigits: 1 };
   return {
@@ -125,7 +122,7 @@ async function main(): Promise<void> {
       `--remote-debugging-port=${CDP_PORT}`,
       // A profile of its own, not shared with smoke-pages: this run stores a
       // language preference, and the other run must not inherit it.
-      `--user-data-dir=D:/Rpeak-Desktop/.cache/edge-smoke-lang`,
+      `--user-data-dir=${join(REPO_ROOT, ".cache/edge-smoke-lang")}`,
       "--window-size=1400,900",
       URL_,
     ],
