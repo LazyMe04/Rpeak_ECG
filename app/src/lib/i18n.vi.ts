@@ -44,8 +44,6 @@ export const VI: Record<string, string> = {
   "Loading segment…": "Đang tải đoạn ghi…",
   "Cannot load the dataset": "Không tải được bộ dữ liệu",
   "Put the dataset in a": "Hãy đặt bộ dữ liệu trong thư mục",
-  "folder next to the installed app, or point": "cạnh ứng dụng đã cài, hoặc trỏ",
-  "at it and restart.": "tới đó rồi khởi động lại.",
   "Start the app with": "Khởi động ứng dụng bằng",
   from: "từ",
   "; the Vite middleware serves /data from": "; middleware Vite phục vụ /data từ",
@@ -105,6 +103,27 @@ export const VI: Record<string, string> = {
   "Patient {id}": "Bệnh nhân {id}",
   "{n} beats": "{n} nhịp",
   "{n} min": "{n} phút",
+
+  // ---- the dataset folder --------------------------------------------------
+  "Dataset folder": "Thư mục dữ liệu",
+  unknown: "chưa rõ",
+  "Missing from this folder: {files}": "Thiếu trong thư mục này: {files}",
+  "Choose folder…": "Chọn thư mục…",
+  "Use default": "Dùng mặc định",
+  "The dev server reads this folder; restart it with RPEAK_DATA_DIR to change it.":
+    "Máy chủ phát triển đọc thư mục này; khởi động lại với RPEAK_DATA_DIR để đổi.",
+  "folder next to the installed app, or use the button above.":
+    "thư mục cạnh bản cài, hoặc dùng nút ở trên.",
+  "environment variable": "biến môi trường",
+  chosen: "đã chọn",
+  "beside the app": "cạnh ứng dụng",
+  "user data folder": "thư mục dữ liệu người dùng",
+  "repository (dev)": "kho mã (phát triển)",
+  "not found": "không tìm thấy",
+  "RPEAK_DATA_DIR is set, so it overrides the folder you chose earlier.":
+    "RPEAK_DATA_DIR đang được đặt nên nó ghi đè thư mục bạn đã chọn trước đó.",
+  "The folder you chose earlier is gone: {path}. Using the next location instead.":
+    "Thư mục bạn chọn trước đó không còn tồn tại: {path}. Đang dùng vị trí kế tiếp.",
 
   // ---- vitals panel --------------------------------------------------------
   Source: "Nguồn",

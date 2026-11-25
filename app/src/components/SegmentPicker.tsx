@@ -2,6 +2,7 @@ import { memo, useMemo } from "react";
 import type { SegmentInfo } from "../lib/signal/types";
 import { ListIcon } from "./icons";
 import { Panel } from "./Panel";
+import { SourceControl } from "./SourceControl";
 import { useT } from "../lib/i18n";
 import { qualityLabel, qualityTone } from "../lib/quality";
 
@@ -58,6 +59,8 @@ export const SegmentPicker = memo(function SegmentPicker({
         })}
       </div>
 
+      <SourceControl compact />
+
       <div className="scrollable-content -mr-2 pr-2">
         {groups.map(([patient, list]) => (
           <div key={patient} className="mb-3">
@@ -72,6 +75,7 @@ export const SegmentPicker = memo(function SegmentPicker({
                     key={seg.record}
                     type="button"
                     onClick={() => onSelect(seg)}
+                    data-testid="segment-row"
                     className={`w-full text-left rounded-lg px-2.5 py-2 border transition-colors ${
                       active
                         ? "border-blue-400/60 bg-blue-500/15"

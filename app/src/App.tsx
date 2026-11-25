@@ -4,6 +4,7 @@ import { IconRail, type RailPanel } from "./components/IconRail";
 import { WaveformCanvas } from "./components/WaveformCanvas";
 import { TransportBar } from "./components/TransportBar";
 import { SegmentPicker } from "./components/SegmentPicker";
+import { SourceControl } from "./components/SourceControl";
 import { StatsPanel } from "./components/StatsPanel";
 import { HrvPanel } from "./components/HrvPanel";
 import { ReportPanel } from "./components/ReportPanel";
@@ -667,21 +668,28 @@ export default function App() {
                     {/* Only the leading sentence is ours; the rest is whatever the
                     dataset layer threw, and it stays as written. */}
                     <div className="text-sm text-dim break-words">{td(error.message)}</div>
-                    <div className="text-xs text-faint mt-3">
-                      {IS_TAURI ? (
-                        <>
+                    {IS_TAURI ? (
+                      <>
+                        {/* The control, not an instruction: this panel is what a
+                        reader sees when the folder is wrong, so it has to be
+                        where they fix it. A successful switch reloads. */}
+                        <div className="mt-4 text-left">
+                          <SourceControl />
+                        </div>
+                        <div className="text-xs text-faint mt-2">
                           {t("Put the dataset in a")} <span className="mono">data</span>{" "}
-                          {t("folder next to the installed app, or point")}{" "}
-                          <span className="mono">RPEAK_DATA_DIR</span> {t("at it and restart.")}
-                        </>
-                      ) : (
+                          {t("folder next to the installed app, or use the button above.")}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-xs text-faint mt-3">
                         <>
                           {t("Start the app with")} <span className="mono">npm run dev</span>{" "}
                           {t("from")} D:\Rpeak-Desktop\app
                           {t("; the Vite middleware serves /data from")} D:\Rpeak-Desktop\data.
                         </>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

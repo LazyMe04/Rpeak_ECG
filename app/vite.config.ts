@@ -90,8 +90,49 @@ function serveDataset(): Plugin {
   };
 }
 
+/**
+ * Tell the page which folder this dev server is serving.
+ *
+ * The packaged app can be repointed at another dataset from inside the window
+ * because Rust owns the path. A browser cannot: the root is fixed when Vite
+ * starts, and changing it means restarting with `RPEAK_DATA_DIR`. So the UI in
+ * a browser shows this path read-only and says so, instead of rendering a
+ * picker that could not work.
+ */
+function announceDataRoot(): Plugin {
+  return {
+    name: "rpeak-announce-data-root",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url !== "/__data-root") return next();
+        res.setHeader("Content-Type", "application/json; charset=utf-8");
+        res.setHeader("Cache-Control", "no-store");
+        res.end(
+          JSON.stringify({
+            path: DATA_ROOT,
+            origin: process.env.RPEAK_DATA_DIR ? "RPEAK_DATA_DIR" : "the repository",
+          }),
+        );
+      });
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url !== "/__data-root") return next();
+        res.setHeader("Content-Type", "application/json; charset=utf-8");
+        res.setHeader("Cache-Control", "no-store");
+        res.end(
+          JSON.stringify({
+            path: DATA_ROOT,
+            origin: process.env.RPEAK_DATA_DIR ? "RPEAK_DATA_DIR" : "the repository",
+          }),
+        );
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), serveDataset()],
+  plugins: [react(), serveDataset(), announceDataRoot()],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

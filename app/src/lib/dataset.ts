@@ -80,19 +80,3 @@ export async function readDatasetJson<T>(path: string): Promise<T> {
   const bytes = await readDataset(path);
   return JSON.parse(new TextDecoder().decode(bytes)) as T;
 }
-
-/**
- * Where the packaged app is looking, for error messages.
- *
- * Returns null in the browser, where the location is the URL and there is
- * nothing to explain.
- */
-export async function describeDataLocation(): Promise<string | null> {
-  if (!IS_TAURI) return null;
-  try {
-    const invoke = await getInvoke();
-    return String(await invoke("data_dir"));
-  } catch {
-    return null;
-  }
-}

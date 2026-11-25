@@ -1,6 +1,7 @@
 import type { AnnotationFile, SegmentInfo } from "./signal/types";
 import { AnnotationTrack, parseAnnotationFile } from "./signal/annotations";
-import { describeDataLocation, readDataset, readDatasetJson } from "./dataset";
+import { readDataset, readDatasetJson } from "./dataset";
+import { describeSource } from "./source";
 
 /**
  * The catalogue: which segments exist, their annotations, and their samples.
@@ -15,11 +16,13 @@ import { describeDataLocation, readDataset, readDatasetJson } from "./dataset";
  *
  * In the packaged app the interesting fact is usually *where the app looked*,
  * which the URL cannot express; in the browser the HTTP status says it all.
+ * The path comes from `source.ts`, so it names the folder currently in force —
+ * including when that is one the user chose — rather than a guess.
  */
 async function withLocation(e: unknown): Promise<Error> {
-  const where = await describeDataLocation();
+  const src = await describeSource();
   const base = e instanceof Error ? e.message : String(e);
-  return new Error(where ? `${base} (dataset folder: ${where})` : base);
+  return new Error(src ? `${base} (dataset folder: ${src.path})` : base);
 }
 
 export async function loadSegments(): Promise<SegmentInfo[]> {
