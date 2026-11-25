@@ -28,16 +28,15 @@ There was no `.git` directory until G16. The tree had been living on the disk
 for fifteen milestones with no history, so "what changed and why" lived in these
 notes and nowhere else.
 
-The initial commit is 251 files. What is **not** in it, and why:
+The initial commit is 252 files. What is **not** in it, and why:
 
-| Excluded                         | Reason                                                                                                                                                                                                                                                                                              |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `data/`                          | 1.1 GB of downloaded PhysioNet material this project did not author. Reproducible via `pipeline/download.py` → `convert.py` → `export_app_index.py`, and documented in [README.md](README.md#dataset-facts). Committing it would make every clone a multi-gigabyte download of someone else's data. |
-| `app/node_modules/`, `app/dist/` | Derived from the lockfile.                                                                                                                                                                                                                                                                          |
-| `app/src-tauri/target/`, `gen/`  | Derived from `Cargo.lock`.                                                                                                                                                                                                                                                                          |
-| `.cache/`                        | Headless-browser profiles (one per smoke suite) and npm cache.                                                                                                                                                                                                                                      |
-| `logs/*.log`                     | Task output, not evidence anyone will re-read.                                                                                                                                                                                                                                                      |
-| `.env`, `.env.*`                 | The app has no secrets today; if it grows one it must not arrive through `git add -A`.                                                                                                                                                                                                              |
+| Excluded                         | Reason                                                                                                                               |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `data/`                          | 1.1 GB of PhysioNet material this project did not author; `pipeline/` rebuilds it.                                                   |
+| `app/node_modules/`, `app/dist/` | Derived from the lockfile.                                                                                                           |
+| `app/src-tauri/target/`, `gen/`  | Derived from `Cargo.lock`.                                                                                                           |
+| `.cache/`, `logs/`               | Headless-browser profiles, npm cache, task output and one-off captures. The screenshots that are documentation are in `docs/shots/`. |
+| `.env`, `.env.*`                 | The app has no secrets today; if it grows one it must not arrive through `git add -A`.                                               |
 
 `app/src-tauri/icons/` _is_ committed even though it is generated: the generator
 is Python + Pillow, and a build should not require Pillow to reproduce an icon
