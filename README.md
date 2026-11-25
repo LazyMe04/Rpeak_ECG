@@ -29,16 +29,21 @@ rebuilds it: `download.py` → `convert.py` → `export_f32.py` →
 `export_app_index.py`. The full path, and the dataset's layout, are in
 [docs/README.md](docs/README.md).
 
+In the packaged app the folder can also be chosen from inside the window — the
+panel that lists segments shows where the dataset is being read from and why
+(`RPEAK_DATA_DIR` beats a remembered choice, and the panel says when it does).
+A browser cannot repoint itself; there the panel shows the path read-only.
+
 To run the quality gate — the one command to run before believing a change:
 
 ```
 cd app
-npm run gate               # twelve stages, no browser needed
-npm run gate -- --browser  # plus five CDP smoke suites, all seventeen
+npm run gate               # thirteen stages, no browser needed
+npm run gate -- --browser  # plus five CDP smoke suites, all eighteen
 ```
 
-Ten of the seventeen stages read `data/`; without it they report `SKIPPED` and
-the footer says `7/17 stages ran` rather than pretending they passed.
+Ten of the eighteen stages read `data/`; without it they report `SKIPPED` and
+the footer says `8/18 stages ran` rather than pretending they passed.
 
 ## Documentation
 

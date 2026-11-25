@@ -24,6 +24,7 @@ rather than reproduced.
 | G14 | Vietnamese UI: the whole app, including the model card and the guide              | **done** — [i18n.md](i18n.md)                                                                                                              |
 | G15 | The shell's edges: failure, focus, deep links and the file title                  | **done** — [app-shell.md](app-shell.md#the-g15-change-the-edges-of-the-shell)                                                              |
 | G16 | Panels became dialogs, and the repo became guardable: git, lint, format, one gate | **done** — [app-shell.md](app-shell.md#the-g16-change-panels-as-dialogs), [process.md](process.md), [packaging.md](packaging.md#licensing) |
+| G17 | The dataset folder is choosable inside the app, and the choice is Rust's          | **done** — [packaging.md](packaging.md#choosing-another-dataset-folder-g17)                                                                |
 
 ## Documents
 
@@ -58,10 +59,13 @@ rather than reproduced.
   rule gains 0.007 pooled and loses 0.004 out of fold, and the per-recording prior
   that would fix everything is worth +0.081 macro-F1 but cannot be estimated from
   the model's own output. No retrain was started, and the reason is written down.
-- **[packaging.md](packaging.md)** — G6: the GNU Rust toolchain this machine
-  forced, how the packaged app finds a dataset it does not ship, the IPC bridge
-  that replaced Vite's middleware, and the checks that drive the real .exe
-  instead of the browser build.
+- **[packaging.md](packaging.md)** — G6 and G17: the GNU Rust toolchain this
+  machine forced, how the packaged app finds a dataset it does not ship, the IPC
+  bridge that replaced Vite's middleware, and the checks that drive the real
+  .exe instead of the browser build. G17 lets the folder be chosen inside the
+  app: the dialog is opened from Rust, the choice is stored by Rust (so it is
+  right before JavaScript runs), `RPEAK_DATA_DIR` still wins and the UI says so,
+  and the picker itself is the one thing no automated check can click.
 - **[i18n.md](i18n.md)** — G14: Vietnamese as the shipped language, English as
   the option. The English sentence is the dictionary key, so a missing entry
   falls back to readable English rather than to a token; numbers go through
@@ -118,10 +122,13 @@ stages, the pre-commit hook and the lint/format setup are described in
 
 The dataset is found at `RPEAK_DATA_DIR`, or else at `<repo>/data` — never from
 the current directory. The same variable is read by the dev server
-(`vite.config.ts`), every script in `app/scripts/`, and the packaged exe, so one
-setting points all of them at one dataset. Python uses `RPEAK_ROOT` for the same
-purpose. A stage with no dataset to read reports `SKIPPED` and exits 0, and the
-gate's footer counts it as not run rather than passed.
+(`vite.config.ts`) and every script in `app/scripts/`. The packaged exe reads it
+too, and it wins there as well, but it also has a longer chain — a folder chosen
+inside the app (`%APPDATA%\com.rpeak.desktop\source.json`), then beside the exe,
+then `%LOCALAPPDATA%\Rpeak\data` — described in
+[packaging.md](packaging.md#finding-the-dataset). Python uses `RPEAK_ROOT` for
+the same purpose. A stage with no dataset to read reports `SKIPPED` and exits 0,
+and the gate's footer counts it as not run rather than passed.
 
 Classifier work, in the pipeline (`python -I`, from `pipeline/`):
 

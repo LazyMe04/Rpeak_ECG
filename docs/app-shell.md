@@ -264,7 +264,8 @@ and `npm run eval` produce for p00000_s00.
 The seek check is exact (`1800 s × 250 Hz = 450,000`) because an off-by-one in
 the window arithmetic shifts every beat marker and is invisible in a still.
 
-`smoke` has since grown to 31 checks; G16's four dialog checks join G15's tail:
+`smoke` has since grown to 35 checks; G16's four dialog checks join G15's tail,
+and G17's three dataset-folder checks sit between them:
 
 ```
 ok   a render error is caught by its panel's boundary
@@ -275,14 +276,18 @@ ok   Escape closes the open panel
 ok   a panel declares itself a modal dialog
 ok   nothing above the dialog hides it from the accessibility tree
 ok   Tab stays inside the dialog in both directions
+ok   the dev server answers where its dataset is
+ok   the browser repeats the folder the dev server is serving
+ok   the browser names which rule chose that folder
+ok   the browser offers no way to switch, and says why
 ok   closing returns focus to the control that opened it
 ok   the rail's labels appear when a button takes keyboard focus
 ok   the title names the monitor
 ok   the title follows the page
 ```
 
-`smoke:lang` is 30 checks, `smoke:theme` 20, `smoke:pages` 59, `smoke:app` 10.
-The full gate — twelve stages without a browser, seventeen with — is
+`smoke:lang` is 30 checks, `smoke:theme` 20, `smoke:pages` 59, `smoke:app` 17.
+The full gate — thirteen stages without a browser, eighteen with — is
 `npm run gate`; see [process.md](process.md).
 
 ## Data path

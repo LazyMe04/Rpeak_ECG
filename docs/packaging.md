@@ -105,22 +105,76 @@ window-rectangle measurement.
 
 ## Finding the dataset
 
-`src-tauri/src/lib.rs::resolve_root` tries, in order:
+`src-tauri/src/source.rs::resolve_from` tries, in order:
 
-1. `RPEAK_DATA_DIR`, if set and a directory.
-2. `<exe dir>\data` — the portable layout: copy the folder beside the exe.
-3. `%LOCALAPPDATA%\Rpeak\data` — where an installed copy naturally keeps 1 GB
-   of ECG, without touching Program Files.
-4. `..\..\data` from `CARGO_MANIFEST_DIR` — **debug builds only**, so
-   `npm run desktop` works with no configuration.
+| #   | Where                                  | Why it is here                                                                                                                                                                         |
+| --- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `RPEAK_DATA_DIR`                       | an operator pointing a build at a dataset elsewhere. **First on purpose**: it must beat a remembered choice, or a scripted run would silently test different bytes than it was told to |
+| 2   | the folder the user chose              | `%APPDATA%\com.rpeak.desktop\source.json`; the only arm a user can set from inside the app                                                                                             |
+| 3   | `<exe dir>\data`                       | the portable layout: copy the folder beside the exe                                                                                                                                    |
+| 4   | `%LOCALAPPDATA%\Rpeak\data`            | where an installed copy naturally keeps 1 GB of ECG, without touching Program Files                                                                                                    |
+| 5   | `..\..\data` from `CARGO_MANIFEST_DIR` | **debug builds only**, so `npm run desktop` works with no configuration                                                                                                                |
 
-A release binary built elsewhere cannot use arm 4: the path is baked in at
+A release binary built elsewhere cannot use arm 5: the path is baked in at
 compile time and guarded by `cfg!(debug_assertions)`.
+
+The resolution is a pure function of five candidate paths (`Candidates`), not a
+reader of `std::env` and the filesystem directly, so the order is testable
+without mutating the process environment — which is global, and races between
+tests. `app/src-tauri/tests/source.rs` asserts the two rules a person is most
+likely to get backwards: that an environment variable beats a remembered choice,
+and that a remembered folder that has since been deleted falls through to the
+next arm _and is reported_, rather than being treated as "never chose one". It
+also pins the report itself: whenever a remembered choice exists and is not the
+one in force — overridden by the variable, or gone — `resolve_from` returns it,
+so the UI has something to say instead of a sentence that can never render.
 
 When nothing is found, the app does not exit. It renders, shows "Cannot load the
 dataset", names the folder it searched, and tells the user what to do. That
 state was tested by running the exe in an empty directory with no environment
 variable and no per-user folder — the failure a first-time user would hit.
+
+## Choosing another dataset folder (G17)
+
+The packaged app can be pointed at a different dataset from inside the window.
+The design points that matter:
+
+- **The picker is called from Rust**, `tauri_plugin_dialog`'s `pick_folder`,
+  arriving on a `tauri::async_runtime::channel`. Not from
+  `@tauri-apps/plugin-dialog` in JavaScript: that would add an npm dependency and
+  a capability, and would still need a Rust command to validate and store the
+  answer. The page calls exactly one thing, `invoke("choose_data_root")`.
+  `blocking_pick_folder` is not used — it deadlocks when called from the main
+  thread, which is where an async Tauri command starts.
+- **The choice is stored by Rust**, in `<app_config_dir>/source.json`, not in
+  `localStorage`. The root is then correct before the first line of JavaScript
+  runs, the same way `RPEAK_DATA_DIR` is, instead of a flash of the wrong
+  dataset followed by a reload.
+- **Validation reads the file it needs.** `check_root` opens
+  `catalog/segments.json` — not just `stat` — because reading is what proves the
+  process may read the folder, and it names the missing path when it cannot. A
+  folder without a catalogue is refused with "No catalog/segments.json here —
+  this is the dataset folder, not an app folder"; a missing `models/beatcnn.json`
+  is only a warning, because the app still replays and detects without the
+  classifier.
+- **Switching reloads the document.** Every worker result and annotation on
+  screen belongs to the folder it was read from, so there is no safe hot swap.
+  The reload keeps `page` and `lang` and drops `record` and `t`, which name a
+  segment the new folder has not been shown to contain.
+- **The override is spoken.** When `RPEAK_DATA_DIR` is set and a stored choice
+  exists, the UI says the variable wins; when the stored folder is gone, it
+  names it and says what is being used instead. A silent override is how a user
+  concludes the picker is broken.
+- **The browser is honest about what it cannot do.** There is no Rust side in a
+  browser, and Vite fixes its root at startup, so `SourceControl` shows the path
+  read-only with "restart it with `RPEAK_DATA_DIR` to change it", rather than a
+  button that would do nothing. The path comes from a dev-only
+  `GET /__data-root` middleware in `vite.config.ts`.
+
+What cannot be automated: the native folder dialog. No CDP call can click it,
+so `smoke:app` exercises every other path through
+`window.__TAURI_INTERNALS__.invoke("set_data_root", …)` and never the picker
+itself. The picker was checked by hand, once, on the built exe.
 
 The dataset is deliberately **not** bundled into the installer. 1.1 GB is not a
 reasonable download, and redistributing Icentia11k inside an installer is a
@@ -156,23 +210,55 @@ bundle never loads it.
 exe. `npm run smoke:app` starts the real executable, attaches to its WebView2
 instance over the DevTools protocol, and asserts against the rendered DOM:
 
-| check                                            | what it catches                                          |
-| ------------------------------------------------ | -------------------------------------------------------- |
-| the packaged app offers the language switch      | a binary built before the i18n work                      |
-| the packaged app ships in Vietnamese             | a stale exe, or a default that silently moved to English |
-| pressing EN switches the packaged app to English | the dictionary missing from the bundle                   |
-| the monitor renders                              | a blank window                                           |
-| the navbar names the segment                     | the catalogue never loaded                               |
-| the canvas has painted pixels                    | a trace that never drew                                  |
-| the classifier rail entry exists                 | a broken render tree                                     |
-| every beat is classified                         | the model file or the IPC path failing                   |
-| the packaged app renders the AI Model page       | a page whose artefacts are missing from the bundle       |
-| the packaged app renders the Docs page           | the same, for the guide                                  |
+| check                                                                      | what it catches                                          |
+| -------------------------------------------------------------------------- | -------------------------------------------------------- |
+| the packaged app offers the language switch                                | a binary built before the i18n work                      |
+| the packaged app ships in Vietnamese                                       | a stale exe, or a default that silently moved to English |
+| pressing EN switches the packaged app to English                           | the dictionary missing from the bundle                   |
+| the monitor renders                                                        | a blank window                                           |
+| the navbar names the segment                                               | the catalogue never loaded                               |
+| the canvas has painted pixels                                              | a trace that never drew                                  |
+| the classifier rail entry exists                                           | a broken render tree                                     |
+| every beat is classified                                                   | the model file or the IPC path failing                   |
+| the packaged app renders the AI Model page                                 | a page whose artefacts are missing from the bundle       |
+| the packaged app renders the Docs page                                     | the same, for the guide                                  |
+| the app names the dataset folder and why it chose it                       | a `data_source` command that never reaches the page      |
+| a folder without `catalog/segments.json` is refused, and the file is named | `check_root` accepting any directory                     |
+| switching the folder changes what the app serves                           | a stored choice that is written but never re-read        |
+| a chosen folder survives a restart, with no environment variable           | persistence that only holds for one process              |
+| forgetting the choice falls back to the environment variable               | a reset that leaves the old root in place                |
+| an overridden folder is reported, not hidden                               | `RPEAK_DATA_DIR` silently beating a remembered choice    |
+| choosing a folder clears the override notice                               | a notice that outlives the state it described            |
+
+The first five of those run against a trimmed copy of the dataset in
+`.cache/dữ liệu thử` — one segment instead of 24 — so switching is visible as a
+count change rather than inferred. The two persistence checks delete
+`source.json` first, so neither can pass on state left behind by an earlier run;
+the run ends by removing it again.
+
+The last two were added after finding that their subject could not happen at
+all. `resolve_from` returned "no remembered choice" on the environment arm, so
+the UI's "RPEAK_DATA_DIR overrides the folder you chose earlier" sentence was in
+the dictionary, was counted as used by the i18n audit, and could never be
+rendered; and `adopt` did not clear the notice, so choosing a new folder left
+"the folder you chose earlier is gone" on screen next to the folder just chosen.
+Both were fixed, both got a check, and both checks were then **run against a
+build with the fix removed** to prove they fail — the first attempt at the
+second one passed vacuously, because its poll expression returned a JSON string,
+which is truthy on the first sample whether or not the panel had rendered yet.
 
 It cannot use `window.__rpeak`: that handle is compiled out of release builds,
 which is exactly what is under test. So the checks read `document.body.innerText`
 and sample the canvas instead. The navbar label carries a `data-dataset-label`
 attribute for the same reason.
+
+The browser half is checked separately, in `smoke.ts`: the segment panel must
+name the folder `GET /__data-root` reports and the same origin word, and must
+offer no choose/reset buttons at all. The expected path comes from the route,
+not from the suite's own environment — a server started with `RPEAK_DATA_DIR`
+and a suite started without it is a normal pairing, and the first version of
+the check failed for exactly that reason. Measured on both: the plain dev server
+(a repo-relative answer) and a second one started with `RPEAK_DATA_DIR` set.
 
 The canvas check polls. The first version sampled once, at the moment the canvas
 element appeared but before the first frame was painted, and reported a working
@@ -194,6 +280,17 @@ passed without anything being switched — the check was looking for English in 
 app that had never left it. They now require the packaged app to _start_ in
 Vietnamese and to _leave_ Vietnamese when EN is pressed. Both halves are needed;
 either one alone can be satisfied by a build that does nothing.
+
+Reading "ships in Vietnamese" needs a profile nothing has written to, because
+WebView2 keeps `localStorage` between runs and the suite presses EN later in the
+same run. That check used to reset the storage from the page and reload, and
+failed about one run in three — a race with the mount effect, not a wrong
+default. It now launches every window against a `mkdtempSync` folder passed as
+`WEBVIEW2_USER_DATA_FOLDER` and deletes it afterwards, so there is no earlier
+state to clear. Re-measured: eight consecutive runs green, and a profile seeded
+by hand with `"en"` still fails the check, which is how the fix was shown not to
+have made the assertion vacuous. [process.md](process.md#a-failure-that-was-a-race-not-a-bug--and-the-fix-that-removes-the-race)
+has the three failed attempts.
 
 Note what this does **not** cover: it drives the page, so it passes whether or
 not the window fits the screen. That is why the sizing fix above was verified

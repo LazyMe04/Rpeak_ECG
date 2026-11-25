@@ -68,7 +68,7 @@ first appeared.
 `.githooks/pre-commit` runs the stages that finish in seconds:
 
 ```
-i18n audit → format check → lint → typecheck → seven unit suites
+i18n audit → format check → lint → typecheck → seven unit suites → cargo test
 ```
 
 and leaves the browser suites to `npm run gate -- --browser`, because three
@@ -77,6 +77,12 @@ headless browsers per commit is a hook people disable. Install once per clone:
 ```
 git config core.hooksPath .githooks
 ```
+
+The Rust tests joined the hook in G17: a commit that changes which dataset
+folder wins and is never compiled is the exact mistake the rule exists to
+prevent. The cost is uneven — the first run after a Rust edit compiles the
+dependency tree (~60 s), every run after that is under a second — and the hook
+reports `skipped (no cargo)` rather than failing when the toolchain is absent.
 
 It earned its place on its first run: it caught a `TS6133` (unused variable) in
 code written the same session, which the editor had not flagged.
@@ -132,7 +138,7 @@ on one machine is a repository with no gate.
 ## `npm run gate`
 
 `app/scripts/gate.ts` runs every stage in order and stops at the first failure.
-Seventeen stages with `--browser`; twelve without.
+Eighteen stages with `--browser`; thirteen without.
 
 ```
 $ npm run gate -- --list
@@ -141,7 +147,7 @@ $ npm run gate -- --list
         lint            A stale hook dependency, an effect with no cleanup, a promise nobody awaits.
         typecheck       The one check that catches a structural mistake before a browser does.
         i18n unit       The language layer's fallbacks, placeholders and detail split.
-        ...             (seven unit suites and the bundle build)
+        ...             (seven unit suites, including the Rust precedence tests, and the bundle build)
 browser smoke           Playback, workers, boundaries and the dialog behaviour, live.
 browser smoke:pages     The model card, the guide and page navigation.
 browser smoke:lang      The shipped default is Vietnamese, and every page follows it.
@@ -159,16 +165,21 @@ Three design decisions worth keeping:
    true. The ten data-backed stages — five unit suites and all five browser
    suites, which derive their expected figures from `data/models/*.json` — are
    flagged `dataBacked` in the stage list, so without a dataset the gate prints
-   `7/12 stages ran` (or `7/17` with `--browser`) and names what it did not
-   check, rather than `all 12 passed`.
+   `8/13 stages ran` (or `8/18` with `--browser`) and names what it did not
+   check, rather than `all 13 passed`. A stage whose _toolchain_ is missing is
+   skipped the same way: `rust unit` reports itself unavailable when `cargo` is
+   not installed, because a missing compiler says nothing about the code.
 3. **`--repeat N` multiplies only the timing-dependent stages.** A smoke suite
    that fails once in six runs means a green run means nothing; the repeat exists
    to make a flake visible rather than to be lenient about it.
 
-Measured on this machine: `npm run gate -- --browser` is 85–100 s, all 17 stages
-green. With no dataset that same command is 28 s and says `7/17`. The non-browser
-gate is 42–66 s with a dataset and 28 s without — the spread is the bundle build
-and the smokes competing with whatever else is on the CPU.
+Measured on this machine: `npm run gate -- --browser` is 88–105 s, all 18 stages
+green (105 s on the G17 run, whose smoke:app adds five checks and builds a
+trimmed fixture; 94 s after the language-profile fix, whose six launches now
+share an empty WebView2 folder). With no dataset that same command is 29 s and
+says `8/18`. The non-browser gate is 42–66 s with a dataset and 29 s without —
+the spread is the bundle build and the smokes competing with whatever else is on
+the CPU.
 
 `smoke:app` drives whatever binary is on disk, and the packaging trap from G6 is
 a build that exits 0 without rebuilding. The gate cannot prove the exe matches
@@ -324,6 +335,121 @@ reasons that are worth recording, because each one is a way a check can lie:
 
 The rail-focus check had the same class of bug: it read `display: "block"`
 before the blur it was supposed to be measuring the effect of.
+
+## The Rust side has tests, and getting them to start was the work
+
+G17 put the dataset-folder precedence rule in Rust, and a rule about which
+folder wins is exactly the kind that must be tested: the failure mode is not a
+crash but a run that quietly reads the wrong dataset. `cargo test` found 10 tests
+in `src-tauri/tests/source.rs`; getting any of them to _run_ took four attempts
+and one measurement.
+
+On Windows, `cargo test` died with exit code `0xc0000139`
+(`STATUS_ENTRYPOINT_NOT_FOUND`) **before printing a test name**. No Rust code had
+executed, so nothing in the test's own output could say why.
+
+The cause was a static import, three dependency layers down.
+`tauri-runtime-wry` binds `comctl32!TaskDialogIndirect` under its
+`common-controls-v6` feature. That export exists only when the application
+manifest declares `Microsoft.Windows.Common-Controls` v6. `tauri-build` compiles
+the manifest and links it via `embed-resource`, whose `compile()` emits
+`cargo:rustc-link-arg-bins` — which reaches the binary and `tests/` targets, but
+**not** the library's own unit-test harness (`#[cfg(test)] mod tests` inside
+`lib.rs`). Without the manifest Windows binds `comctl32` to v5, which has no
+v6-only entry point, and the loader stops the process before `main`.
+
+Three measurement steps, in order, each of which changed the hypothesis:
+
+1. `#[cfg(not(test))]` around the dialog plugin — **wrong assumption**:
+   the import comes from `tauri`'s own dependency tree, not from the plugin, so
+   excluding the plugin changed nothing.
+2. Comparing the PE resources of the working exe and the failing test harness:
+   the exe carried one Common-Controls manifest, the harness zero.
+3. Reading `tauri-build`/`tauri-winres`/`embed-resource` to see which
+   `cargo:rustc-link-arg*` directive reaches which target.
+
+The fix is three lines and does not touch the app binary:
+
+- `[lib] test = false`, `doctest = false` in `Cargo.toml` — no unit-test harness
+  for the library at all;
+- the tests live in `tests/source.rs`, which the manifest does reach;
+- `build.rs` emits `cargo:rustc-link-arg-tests=<OUT_DIR>/libresource.a` after
+  `tauri_build::build()`, conditioned on the file existing.
+
+`cargo:rustc-link-arg=` (all targets) is the wrong spelling: it double-links
+the resource into the binary, and `ld` fails with
+`.rsrc merge failure: duplicate leaf: type: 3 (ICON)`. `-tests=` only works
+once a `tests/` target exists — otherwise Cargo rejects it with "does not have
+a test target". The app binary was checked afterwards: still exactly one
+manifest.
+
+The lesson generalises beyond Rust: **a test harness that cannot start, with an
+error naming no missing symbol, is not a test failure and will not be reported
+as one.** It has to be found by comparing a binary that works with one that does
+not.
+
+## A failure that was a race, not a bug — and the fix that removes the race
+
+`smoke:app` has a check that the packaged app **ships** in Vietnamese: launch a
+first-time reader's window and read the language before anything presses a
+button. It failed about one run in three, always with the same detail:
+
+```
+FAIL the packaged app ships in Vietnamese -- {"lang":"en","vi":"false"}
+```
+
+The value was English because WebView2 keeps `localStorage` in a profile that
+outlives the process, and the suite presses EN later in the same run. A run that
+started after a run that ended in English read the previous run's choice and
+called it the shipped default. So the suite reset the storage from the page and
+reloaded. That is where the race came from, and three attempts at making the
+reload safe all still failed roughly one run in three:
+
+1. Set `window.__navToken` before `location.reload()` and require it gone —
+   the token rejects the old document but says nothing about _when_ the new one's
+   React mount effect ran, and `index.html` ships `<html lang="en">`.
+2. Read until two consecutive samples agreed. Still failed: the reset expression
+   itself ran before the app mounted, so `removeItem` fired into a provider whose
+   mount effect then wrote `"en"` straight back from its own in-memory state.
+3. Require `document.documentElement.lang === storedLang()` before removing —
+   i.e. only reset once the effect had demonstrably run. This one _looks_ like it
+   closes the gap, and it measured 15/15 and 8/8 in a standalone repro. In the
+   suite it still failed one run in three.
+
+The repro failing to reproduce was the useful measurement. It said the reset was
+not inherently racy; something about the state a real suite run leaves behind
+made it so, and no amount of waiting on the page would fix that. The right
+question was not "how do I win the race" but "why is there a race at all".
+
+There does not have to be one. The WebView2 loader honours
+`WEBVIEW2_USER_DATA_FOLDER`, and pointing it at a folder made with
+`mkdtempSync` gives the run a profile that has never been written to:
+
+```
+launch A (empty folder)   press EN   ->  stored "en"
+launch A again                        ->  still "en"   (the folder is the profile)
+launch B (second empty folder)        ->  "vi", stored "vi"   (a first-time reader)
+```
+
+So the suite now makes one empty profile per run, shares it across its six
+launches, and deletes it afterwards. The reset and the reload are **gone**: there
+is no earlier state to clear and no second document to read. The check measures
+what it claims to — the shipped default — and eight consecutive runs passed.
+
+Two things worth keeping from this:
+
+- **A flaky check is usually a check whose environment is not controlled**, not
+  a check that needs a longer timeout. Three waiting strategies failed because
+  patience cannot fix shared state.
+- **Prove the check can still fail.** With the profiles seeded by hand to hold
+  `"en"`, the check reports `{"lang":"en","vi":"false"}` and only that check
+  fails — the fix controls the default without making the assertion vacuous.
+
+The profile cannot always be removed at the end: `kill()` is asynchronous and
+the WebView2 helper processes outlive it by a moment with files still open, so
+the first `rmSync` lost on every run (7 MB per run left in `%TEMP%`). It now
+retries for five seconds and says so if it still cannot, rather than failing a
+run over a temp folder.
 
 ## What was measured and dropped
 
