@@ -19,6 +19,17 @@ name = "rpeak_lib"
 # ships Windows desktop only, so the mobile artefacts are dropped rather than
 # working around the limit; restoring them means moving to the MSVC toolchain.
 crate-type = ["rlib"]
+# No unit-test binary for the library. It links `tauri`, which statically
+# imports `comctl32!TaskDialogIndirect`, and that export exists only under
+# Common-Controls v6 — declared by the application manifest, which `tauri-build`
+# links into binaries and into `tests/` but not into the library's own unit-test
+# harness. The harness therefore dies at startup with
+# `0xc0000139 STATUS_ENTRYPOINT_NOT_FOUND`, before listing a test. The tests live
+# in `tests/source.rs`, and `build.rs` hands that target the manifest.
+# `doctest = false` because this module has no doc examples, and a doctest binary
+# would have to link the same runtime for nothing.
+test = false
+doctest = false
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -26,6 +37,10 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri-plugin-dialog = "2"
+
+[dev-dependencies]
 serde_json = "1"
 
 [profile.release]
