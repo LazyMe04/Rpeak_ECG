@@ -15,7 +15,7 @@
  *
  * Usage:
  *   npm run gate                 # everything that does not need a browser
- *   npm run gate -- --browser    # plus the four CDP smoke suites
+ *   npm run gate -- --browser    # plus the five CDP smoke suites
  *   npm run gate -- --repeat 3 --browser
  *   npm run gate -- --list       # what the stages are, and why each exists
  *
@@ -25,8 +25,9 @@
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { delimiter, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { homedir } from "node:os";
 
 import { DATA_ROOT, hasDataset } from "./lib/dataset";
 
@@ -54,6 +55,14 @@ interface Stage {
    * says directly.
    */
   dataBacked?: boolean;
+  /** Extra environment for this stage, merged over the inherited one. */
+  env?: Record<string, string>;
+  /**
+   * Why this stage cannot run here, or `null` if it can. A stage that is not
+   * installed is reported by name in the footer, exactly like a data-backed one
+   * with no dataset — the count never pretends it passed.
+   */
+  unavailable?: () => string | null;
 }
 
 const STAGES: Stage[] = [
@@ -150,6 +159,20 @@ const STAGES: Stage[] = [
     dataBacked: true,
   },
   {
+    // `cargo` is not on PATH on this machine, and the data-folder precedence
+    // rule is the one part of the app whose failure mode is a run that silently
+    // reads the wrong dataset. It needs no dataset of its own (the tests build
+    // throwaway folders), so it is not dataBacked.
+    name: "rust unit",
+    command: "cargo",
+    args: ["test", "--quiet", "--manifest-path", resolve(APP, "src-tauri/Cargo.toml")],
+    cwd: resolve(APP, "src-tauri"),
+    why: "Which dataset folder wins, and which paths may be read from it.",
+    env: { PATH: `${resolve(homedir(), ".cargo", "bin")}${delimiter}${process.env.PATH ?? ""}` },
+    unavailable: () =>
+      cargoInstalled() ? null : `no cargo on PATH or in ${resolve(homedir(), ".cargo", "bin")}`,
+  },
+  {
     name: "bundle",
     command: "npx",
     args: ["vite", "build"],
@@ -209,6 +232,23 @@ const STAGES: Stage[] = [
 ];
 
 const isWin = process.platform === "win32";
+
+/**
+ * `cargo` is installed here but not on PATH (it lives in `~/.cargo/bin`), so a
+ * bare `existsSync` on the name is not the question. Ask the filesystem for the
+ * executable in the two places it can be, and let the stage report itself
+ * unavailable rather than fail with ENOENT — a missing toolchain says nothing
+ * about whether the Rust tests pass.
+ */
+function cargoInstalled(): boolean {
+  const bin = resolve(homedir(), ".cargo", "bin", isWin ? "cargo.exe" : "cargo");
+  return (
+    existsSync(bin) ||
+    (process.env.PATH ?? "")
+      .split(delimiter)
+      .some((d) => existsSync(resolve(d, isWin ? "cargo.exe" : "cargo")))
+  );
+}
 
 /**
  * `npx` and `python` reach the machine as `.cmd` shims, and Node cannot spawn
@@ -281,18 +321,27 @@ if (skipped.length > 0) {
  * The data-backed suites need `data/`, which is deliberately not in the
  * repository. Counting their skip as `ok` would let a green gate mean "nothing
  * was checked", which is the exact failure mode this script exists to prevent --
- * so they are named in the summary and the count is "7/12", not "all".
+ * so they are named in the summary and the count is "7/13", not "all". A stage
+ * whose toolchain is missing gets the same treatment, for the same reason.
  */
 const haveData = hasDataset();
-const skippedBySelf = stages.filter((s) => s.dataBacked && !haveData).map((s) => s.name);
-if (!haveData && skippedBySelf.length > 0) {
+function notRunReason(stage: Stage): string | null {
+  if (stage.dataBacked && !haveData) return `no dataset at ${DATA_ROOT}`;
+  return stage.unavailable?.() ?? null;
+}
+const skippedBySelf = stages
+  .map((s) => ({ name: s.name, why: notRunReason(s) }))
+  .filter((s): s is { name: string; why: string } => s.why !== null)
+  .map((s) => s.name);
+if (!haveData) {
   console.log(`gate: no dataset at ${DATA_ROOT}; data-backed stages will be skipped`);
 }
 
 const t0 = Date.now();
 for (const stage of stages) {
-  if (stage.dataBacked && !haveData) {
-    console.log(`\n── ${stage.name} SKIPPED (no dataset at ${DATA_ROOT})`);
+  const why = notRunReason(stage);
+  if (why) {
+    console.log(`\n── ${stage.name} SKIPPED (${why})`);
     continue;
   }
   const runs = stage.repeatable ? repeat : 1;
@@ -307,6 +356,7 @@ for (const stage of stages) {
     const r = spawnSync(command, args, {
       cwd: stage.cwd,
       stdio: "inherit",
+      env: stage.env ? { ...process.env, ...stage.env } : process.env,
     });
     const secs = ((Date.now() - started) / 1000).toFixed(1);
     if (r.status !== 0) {
@@ -323,7 +373,7 @@ for (const stage of stages) {
 const ran = stages.length - skippedBySelf.length;
 if (skippedBySelf.length > 0) {
   console.log(
-    `\ngate: ${ran}/${stages.length} stages ran; skipped for want of a dataset: ` +
+    `\ngate: ${ran}/${stages.length} stages ran; not run: ` +
       `${skippedBySelf.join(", ")}\n  this gate did not check those stages.`,
   );
 }

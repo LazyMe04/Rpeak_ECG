@@ -72,6 +72,33 @@ for suite in test test:detect test:hrv test:delineate test:report test:cnn test:
   rm -f "$log"
 done
 
+# The Rust tests decide which dataset folder wins. `cargo` is installed but not
+# on PATH on this machine, and the first run after a Rust edit compiles the
+# whole dependency tree (~60 s); every run after that is under a second. It is
+# here rather than left to the gate because a commit that changes the
+# precedence rule and is never compiled is the exact mistake the rule is about.
+printf "  %-14s " "rust"
+CARGO="$HOME/.cargo/bin/cargo"
+if command -v cargo >/dev/null 2>&1; then
+  CARGO="cargo"
+elif [ ! -x "$CARGO" ]; then
+  echo "skipped (no cargo)"
+  CARGO=""
+fi
+if [ -n "$CARGO" ]; then
+  log="$(mktemp)"
+  if PATH="$HOME/.cargo/bin:$PATH" "$CARGO" test --quiet \
+      --manifest-path src-tauri/Cargo.toml >"$log" 2>&1; then
+    echo "ok"
+  else
+    echo "FAILED"
+    tail -20 "$log"
+    rm -f "$log"
+    exit 1
+  fi
+  rm -f "$log"
+fi
+
 if [ -n "$SKIPPED" ]; then
   echo "pre-commit: note -- not checked for want of a dataset:$SKIPPED"
 fi
