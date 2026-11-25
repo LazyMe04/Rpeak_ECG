@@ -16,7 +16,6 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import { REPO_ROOT } from "./lib/dataset";
-
 const PORT = Number(argValue("--port") ?? 5173);
 const CDP_PORT = 9333;
 // `lang=en` pins the language. The app defaults to Vietnamese, and this script
@@ -467,6 +466,71 @@ async function main(): Promise<void> {
       "Tab stays inside the dialog in both directions",
       trap?.wrapped === true,
       JSON.stringify(trap),
+    );
+
+    // ---- the browser says where its dataset is, and cannot change it ------
+    // In a browser there is no Rust side, and Vite fixes its root at startup.
+    // So the panel must name the folder the dev server is actually serving and
+    // must offer no button, because a button here would do nothing.
+    //
+    // The expected values are taken from `GET /__data-root` -- the same route
+    // the panel itself reads -- and not from this script's environment. The two
+    // are not the same thing: a server started with `RPEAK_DATA_DIR` and a
+    // suite started without it are a perfectly normal pairing, and comparing
+    // the page against this process's env made the check fail for that reason
+    // rather than for a defect. What a reader is owed is that the panel repeats
+    // what the server said.
+    let answer: { path?: string; origin?: string } | null = null;
+    try {
+      const res = await fetch(`http://localhost:${PORT}/__data-root`);
+      if (res.ok) answer = (await res.json()) as { path?: string; origin?: string };
+    } catch {
+      /* reported by the checks below */
+    }
+    const source = await evaluate(`(() => {
+      const dlg = document.querySelector('[data-panel="segments"]');
+      if (!dlg) return null;
+      const text = (sel) => {
+        const el = dlg.querySelector(sel);
+        return el ? (el.textContent || "").trim() : null;
+      };
+      return {
+        path: text('[data-testid=data-source-path]'),
+        origin: text('[data-testid=data-source-origin]'),
+        choose: dlg.querySelectorAll('[data-testid=choose-source]').length,
+        reset: dlg.querySelectorAll('[data-testid=reset-source]').length,
+        sentence: (dlg.textContent || "").includes("restart it with RPEAK_DATA_DIR"),
+      };
+    })()`);
+    check(
+      "the dev server answers where its dataset is",
+      typeof answer?.path === "string" && answer.path.length > 0,
+      JSON.stringify(answer),
+    );
+    // The route could in principle answer with a path nothing is behind, and a
+    // check for that was written and then removed: this suite only reaches here
+    // if `segment loads` passed, which it can only do by fetching a real segment
+    // from the same `DATA_ROOT` the route reports. The check could not fail, and
+    // one that cannot fail is not evidence. Reported instead as a fact.
+    console.log(`  note  the dev server serves ${answer?.path}`);
+    check(
+      "the browser repeats the folder the dev server is serving",
+      source?.path != null && source.path === answer?.path,
+      `${JSON.stringify(source?.path)} vs ${JSON.stringify(answer?.path)}`,
+    );
+    check(
+      "the browser names which rule chose that folder",
+      // The two rules `vite.config.ts` can report. A third string here would be
+      // an origin the UI has no sentence for.
+      source?.origin != null &&
+        source.origin === answer?.origin &&
+        (source.origin === "RPEAK_DATA_DIR" || source.origin === "the repository"),
+      `${JSON.stringify(source?.origin)} vs ${JSON.stringify(answer?.origin)}`,
+    );
+    check(
+      "the browser offers no way to switch, and says why",
+      source?.choose === 0 && source?.reset === 0 && source?.sentence === true,
+      JSON.stringify(source),
     );
 
     // Closing must put focus back on the rail button that opened the panel.
